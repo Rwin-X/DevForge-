@@ -65,10 +65,6 @@ No database, no accounts, no cloud — just a file on your disk.
 
 ---
 
-## Screenshots
-
-> Dark minimal UI with violet accent, progress bar, scrollable task list.
-
 ---
 
 ## License
