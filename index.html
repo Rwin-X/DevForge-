@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YearGrid — Consistency Engine</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <span class="header-logo">⬛</span>
+      <div class="header-titles">
+        <h1 class="app-title">YearGrid</h1>
+        <span class="app-subtitle">Consistency Engine</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="year-badge" id="currentYear"></span>
+      <span class="header-meta" id="headerProgress"></span>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT -->
+  <main class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+      <section class="stat-block">
+        <div class="stat-label">TRACKED</div>
+        <div class="stat-value" id="statTracked">0</div>
+        <div class="stat-sub">/ 360 days</div>
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="activity-stats">
+        <div class="activity-stat run">
+          <span class="act-icon">🏃</span>
+          <span class="act-name">RUN</span>
+          <span class="act-count" id="statRun">0</span>
+        </div>
+        <div class="activity-stat create">
+          <span class="act-icon">⚒</span>
+          <span class="act-name">CREATE</span>
+          <span class="act-count" id="statCreate">0</span>
+        </div>
+        <div class="activity-stat learn">
+          <span class="act-icon">📚</span>
+          <span class="act-name">LEARN</span>
+          <span class="act-count" id="statLearn">0</span>
+        </div>
+        <div class="activity-stat book">
+          <span class="act-icon">📖</span>
+          <span class="act-name">BOOK</span>
+          <span class="act-count" id="statBook">0</span>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="streak-block">
+        <div class="streak-item">
+          <div class="streak-label">CURRENT STREAK</div>
+          <div class="streak-value" id="statCurrentStreak">0 <span class="streak-unit">days</span></div>
+        </div>
+        <div class="streak-item">
+          <div class="streak-label">LONGEST STREAK</div>
+          <div class="streak-value" id="statLongestStreak">0 <span class="streak-unit">days</span></div>
+        </div>
+        <div class="streak-item">
+          <div class="streak-label">COMPLETION</div>
+          <div class="streak-value" id="statCompletion">0<span class="streak-unit">%</span></div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="legend">
+        <div class="legend-title">LEGEND</div>
+        <div class="legend-item">
+          <span class="legend-swatch empty"></span>
+          <span>Empty</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch run-swatch"></span>
+          <span>🏃 Run</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch create-swatch"></span>
+          <span>⚒ Create</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch learn-swatch"></span>
+          <span>📚 Learn</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch book-swatch"></span>
+          <span>📖 Book</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch multi-swatch"></span>
+          <span>Multi-activity</span>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="actions">
+        <button class="btn-reset-all" id="btnResetAll">⚠ Reset All Data</button>
+      </section>
+
+    </aside>
+
+    <!-- GRID AREA -->
+    <section class="grid-section">
+      <div class="grid-header">
+        <span class="grid-title">360-DAY GRID</span>
+        <div class="month-labels" id="monthLabels"></div>
+      </div>
+      <div class="grid-wrapper">
+        <div class="day-labels">
+          <span>MON</span>
+          <span>WED</span>
+          <span>FRI</span>
+        </div>
+        <div class="grid" id="grid"></div>
+      </div>
+      <div class="grid-footer">
+        <span class="grid-footer-note">Click any cell to log activity</span>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TOOLTIP -->
+  <div class="tooltip" id="tooltip"></div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <div class="modal-date" id="modalDate"></div>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-label">LOG ACTIVITIES</div>
+        <div class="modal-activities">
+          <label class="activity-toggle run-toggle">
+            <input type="checkbox" id="checkRun" />
+            <span class="toggle-box run-box"></span>
+            <span class="toggle-label">🏃 RUN</span>
+          </label>
+          <label class="activity-toggle create-toggle">
+            <input type="checkbox" id="checkCreate" />
+            <span class="toggle-box create-box"></span>
+            <span class="toggle-label">⚒ CREATE</span>
+          </label>
+          <label class="activity-toggle learn-toggle">
+            <input type="checkbox" id="checkLearn" />
+            <span class="toggle-box learn-box"></span>
+            <span class="toggle-label">📚 LEARN</span>
+          </label>
+          <label class="activity-toggle book-toggle">
+            <input type="checkbox" id="checkBook" />
+            <span class="toggle-box book-box"></span>
+            <span class="toggle-label">📖 BOOK</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-save" id="btnSave">SAVE</button>
+        <button class="btn-clear-day" id="btnClearDay">CLEAR DAY</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
