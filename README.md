@@ -7,5 +7,3 @@ it will updated
 
 
 create app to publish
-
-days gone and app wait
