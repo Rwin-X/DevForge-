@@ -1,0 +1,1409 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>ECOSIM // PREDATOR_PREY.exe</title>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Vazirmatn:wght@400;500;700&display=swap");
+
+            :root {
+                --bg: #050a08;
+                --bg2: #081410;
+                --grid-dark: #0c1f14;
+                --grid-light: #133a22;
+                --acid: #39ff6a;
+                --acid-dim: #1f7a3a;
+                --fox: #ff5a3c;
+                --fox-dim: #7a2d1f;
+                --sheep: #eef5ef;
+                --sheep-dim: #9fb3a6;
+                --panel: #0a1410;
+                --line: #163225;
+                --warn: #ffcc33;
+                --text-dim: #6f9783;
+            }
+
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            html,
+            body {
+                background: var(--bg);
+                color: var(--sheep);
+                font-family: "JetBrains Mono", monospace;
+                min-height: 100vh;
+                overflow-x: hidden;
+            }
+
+            body {
+                background-image:
+                    radial-gradient(
+                        circle at 20% 0%,
+                        rgba(57, 255, 106, 0.05),
+                        transparent 40%
+                    ),
+                    radial-gradient(
+                        circle at 80% 100%,
+                        rgba(255, 90, 60, 0.05),
+                        transparent 40%
+                    );
+            }
+
+            .fa {
+                font-family: "Vazirmatn", sans-serif;
+            }
+
+            .scanlines {
+                position: fixed;
+                inset: 0;
+                pointer-events: none;
+                z-index: 50;
+                background: repeating-linear-gradient(
+                    to bottom,
+                    rgba(0, 0, 0, 0) 0px,
+                    rgba(0, 0, 0, 0) 2px,
+                    rgba(0, 255, 100, 0.012) 3px,
+                    rgba(0, 0, 0, 0) 4px
+                );
+                mix-blend-mode: overlay;
+            }
+
+            .wrap {
+                max-width: 980px;
+                margin: 0 auto;
+                padding: 18px 14px 60px;
+            }
+
+            /* HEADER */
+            header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 1px solid var(--line);
+                padding-bottom: 14px;
+                margin-bottom: 16px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .brand {
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
+            }
+            .brand .glyph {
+                color: var(--acid);
+                font-size: 22px;
+                font-weight: 800;
+                letter-spacing: 1px;
+            }
+            .brand .sub {
+                color: var(--text-dim);
+                font-size: 11px;
+                letter-spacing: 2px;
+            }
+            .clock {
+                color: var(--acid);
+                font-size: 12px;
+                letter-spacing: 1px;
+                border: 1px solid var(--acid-dim);
+                padding: 4px 10px;
+                border-radius: 3px;
+                background: rgba(57, 255, 106, 0.04);
+            }
+
+            /* STATUS STRIP */
+            .status-strip {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                margin-bottom: 14px;
+            }
+            .stat {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 4px;
+                padding: 10px 12px;
+                position: relative;
+                overflow: hidden;
+            }
+            .stat::before {
+                content: "";
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 3px;
+            }
+            .stat.sheep::before {
+                background: var(--sheep-dim);
+            }
+            .stat.fox::before {
+                background: var(--fox);
+            }
+            .stat.tick::before {
+                background: var(--acid-dim);
+            }
+            .stat .label {
+                font-size: 9px;
+                letter-spacing: 1.5px;
+                color: var(--text-dim);
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                margin-bottom: 4px;
+            }
+            .stat .value {
+                font-size: 22px;
+                font-weight: 700;
+                line-height: 1;
+            }
+            .stat.sheep .value {
+                color: var(--sheep);
+            }
+            .stat.fox .value {
+                color: var(--fox);
+            }
+            .stat.tick .value {
+                color: var(--acid);
+            }
+            .stat .delta {
+                font-size: 10px;
+                margin-right: 6px;
+            }
+            .delta.up {
+                color: var(--acid);
+            }
+            .delta.down {
+                color: var(--fox);
+            }
+
+            /* MAIN LAYOUT */
+            .layout {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+
+            .panel {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 5px;
+                overflow: hidden;
+            }
+            .panel-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 12px;
+                border-bottom: 1px solid var(--line);
+                font-size: 10px;
+                letter-spacing: 1.5px;
+                color: var(--text-dim);
+            }
+            .panel-head .tag {
+                color: var(--acid);
+            }
+
+            /* CANVAS / FIELD */
+            #fieldCanvas {
+                display: block;
+                width: 100%;
+                background: var(--grid-dark);
+                image-rendering: pixelated;
+                cursor: crosshair;
+            }
+
+            /* CONTROLS */
+            .controls {
+                padding: 12px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+            }
+            button {
+                font-family: "JetBrains Mono", monospace;
+                background: transparent;
+                color: var(--sheep);
+                border: 1px solid var(--line);
+                padding: 9px 14px;
+                border-radius: 3px;
+                font-size: 12px;
+                letter-spacing: 1px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                flex: 1 1 auto;
+                min-width: 90px;
+            }
+            button:hover {
+                border-color: var(--acid);
+                color: var(--acid);
+                background: rgba(57, 255, 106, 0.06);
+            }
+            button:active {
+                transform: scale(0.97);
+            }
+            button.primary {
+                border-color: var(--acid-dim);
+                color: var(--acid);
+                background: rgba(57, 255, 106, 0.08);
+            }
+            button.primary:hover {
+                background: rgba(57, 255, 106, 0.16);
+            }
+            button.danger {
+                border-color: var(--fox-dim);
+                color: var(--fox);
+            }
+            button.danger:hover {
+                border-color: var(--fox);
+                background: rgba(255, 90, 60, 0.08);
+            }
+            button.icon {
+                flex: 0 0 auto;
+                min-width: 44px;
+            }
+
+            .speed-group {
+                display: flex;
+                gap: 4px;
+                flex: 1 1 100%;
+                border-top: 1px dashed var(--line);
+                padding-top: 10px;
+                margin-top: 4px;
+            }
+            .speed-group button {
+                flex: 1;
+                padding: 7px 4px;
+                font-size: 11px;
+            }
+            .speed-group button.active {
+                border-color: var(--acid);
+                color: var(--bg);
+                background: var(--acid);
+            }
+
+            /* PARAMS */
+            .params {
+                padding: 12px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px 16px;
+            }
+            .param {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .param label {
+                font-size: 10px;
+                color: var(--text-dim);
+                display: flex;
+                justify-content: space-between;
+                letter-spacing: 0.5px;
+            }
+            .param label .fa-label {
+                font-family: "Vazirmatn", sans-serif;
+            }
+            .param label .val {
+                color: var(--sheep);
+                font-weight: 700;
+            }
+            .param.fox-p label .val {
+                color: var(--fox);
+            }
+            input[type="range"] {
+                width: 100%;
+                accent-color: var(--acid);
+                height: 4px;
+                background: var(--line);
+            }
+            .param.fox-p input[type="range"] {
+                accent-color: var(--fox);
+            }
+            input[type="number"] {
+                background: var(--bg2);
+                border: 1px solid var(--line);
+                color: var(--sheep);
+                font-family: "JetBrains Mono", monospace;
+                padding: 6px 8px;
+                border-radius: 3px;
+                width: 100%;
+                font-size: 13px;
+            }
+            .param.fox-p input[type="number"] {
+                color: var(--fox);
+            }
+
+            /* CHART */
+            #chartCanvas {
+                display: block;
+                width: 100%;
+                background: linear-gradient(var(--bg2), var(--bg2));
+            }
+            .chart-legend {
+                display: flex;
+                gap: 16px;
+                padding: 8px 12px;
+                font-size: 11px;
+                border-top: 1px solid var(--line);
+                flex-wrap: wrap;
+            }
+            .chart-legend .lg {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .chart-legend .dot {
+                width: 9px;
+                height: 9px;
+                border-radius: 2px;
+            }
+
+            /* LOG */
+            .log {
+                height: 130px;
+                overflow-y: auto;
+                padding: 10px 12px;
+                font-size: 11px;
+                line-height: 1.7;
+                color: var(--text-dim);
+            }
+            .log .entry {
+                display: flex;
+                gap: 8px;
+            }
+            .log .entry .t {
+                color: var(--acid-dim);
+                flex-shrink: 0;
+            }
+            .log .entry.fox-event .t {
+                color: var(--fox);
+            }
+            .log .entry.sheep-event .t {
+                color: var(--sheep-dim);
+            }
+            .log .entry.system .t {
+                color: var(--warn);
+            }
+            .log .msg {
+                font-family: "Vazirmatn", sans-serif;
+            }
+            .log::-webkit-scrollbar {
+                width: 5px;
+            }
+            .log::-webkit-scrollbar-thumb {
+                background: var(--line);
+            }
+
+            /* VERDICT OVERLAY */
+            .verdict {
+                position: fixed;
+                inset: 0;
+                background: rgba(2, 6, 4, 0.92);
+                backdrop-filter: blur(4px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s ease;
+                padding: 20px;
+            }
+            .verdict.show {
+                opacity: 1;
+                pointer-events: all;
+            }
+            .verdict-box {
+                background: var(--panel);
+                border: 1px solid var(--acid-dim);
+                border-radius: 6px;
+                padding: 28px 24px;
+                max-width: 420px;
+                width: 100%;
+                text-align: center;
+                box-shadow: 0 0 60px rgba(57, 255, 106, 0.08);
+            }
+            .verdict-box.fox-win {
+                border-color: var(--fox-dim);
+                box-shadow: 0 0 60px rgba(255, 90, 60, 0.1);
+            }
+            .verdict-icon {
+                font-size: 46px;
+                margin-bottom: 10px;
+            }
+            .verdict-title {
+                font-size: 12px;
+                letter-spacing: 3px;
+                color: var(--text-dim);
+                margin-bottom: 6px;
+            }
+            .verdict-result {
+                font-size: 26px;
+                font-weight: 800;
+                margin-bottom: 14px;
+            }
+            .verdict-result.sheep-c {
+                color: var(--sheep);
+            }
+            .verdict-result.fox-c {
+                color: var(--fox);
+            }
+            .verdict-result.draw-c {
+                color: var(--warn);
+            }
+            .verdict-detail {
+                font-family: "Vazirmatn", sans-serif;
+                font-size: 13px;
+                color: var(--text-dim);
+                line-height: 1.8;
+                margin-bottom: 18px;
+            }
+            .verdict-detail b {
+                color: var(--sheep);
+            }
+            .verdict-stats {
+                display: flex;
+                justify-content: center;
+                gap: 24px;
+                margin-bottom: 18px;
+                font-size: 11px;
+            }
+            .verdict-stats div {
+                color: var(--text-dim);
+            }
+            .verdict-stats b {
+                display: block;
+                font-size: 16px;
+                color: var(--acid);
+            }
+
+            footer {
+                text-align: center;
+                margin-top: 18px;
+                font-size: 10px;
+                color: var(--text-dim);
+                letter-spacing: 1px;
+            }
+
+            @media (min-width: 760px) {
+                .layout {
+                    grid-template-columns: 1.4fr 1fr;
+                }
+                .layout .field-panel {
+                    grid-row: span 2;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="scanlines"></div>
+        <div class="wrap">
+            <header>
+                <div class="brand">
+                    <span class="glyph">▣ ECOSIM</span>
+                    <span class="sub fa">شکار / شکارچی</span>
+                </div>
+                <div class="clock" id="tickClock">TICK 0000</div>
+            </header>
+
+            <div class="status-strip">
+                <div class="stat sheep">
+                    <div class="label">
+                        <span>🐑</span> SHEEP<span class="fa">_گوسفند</span>
+                    </div>
+                    <div class="value" id="sheepCount">20</div>
+                </div>
+                <div class="stat fox">
+                    <div class="label">
+                        <span>🦊</span> FOX<span class="fa">_روباه</span>
+                    </div>
+                    <div class="value" id="foxCount">10</div>
+                </div>
+                <div class="stat tick">
+                    <div class="label"><span>⏱</span> GRASS_AVG</div>
+                    <div class="value" id="grassAvg">--</div>
+                </div>
+            </div>
+
+            <div class="layout">
+                <div class="panel field-panel">
+                    <div class="panel-head">
+                        <span class="tag">FIELD.VIEW</span>
+                        <span id="fieldDims">40×30</span>
+                    </div>
+                    <canvas id="fieldCanvas"></canvas>
+                    <div class="controls">
+                        <button
+                            class="icon primary"
+                            id="btnPlay"
+                            title="Play/Pause"
+                        >
+                            ▶
+                        </button>
+                        <button class="icon" id="btnStep" title="Single Step">
+                            ⏭
+                        </button>
+                        <button class="icon danger" id="btnReset" title="Reset">
+                            ↺
+                        </button>
+                        <div class="speed-group">
+                            <button data-speed="1">×1</button>
+                            <button data-speed="2" class="active">×2</button>
+                            <button data-speed="4">×4</button>
+                            <button data-speed="8">×8</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-head">
+                        <span class="tag">PARAMETERS</span
+                        ><span class="fa">پارامترها</span>
+                    </div>
+                    <div class="params">
+                        <div class="param">
+                            <label
+                                ><span class="fa-label">گوسفند اولیه</span
+                                ><span class="val" id="vInitSheep"
+                                    >20</span
+                                ></label
+                            >
+                            <input
+                                type="range"
+                                id="pInitSheep"
+                                min="2"
+                                max="80"
+                                value="20"
+                            />
+                        </div>
+                        <div class="param fox-p">
+                            <label
+                                ><span class="fa-label">روباه اولیه</span
+                                ><span class="val" id="vInitFox"
+                                    >10</span
+                                ></label
+                            >
+                            <input
+                                type="range"
+                                id="pInitFox"
+                                min="1"
+                                max="40"
+                                value="10"
+                            />
+                        </div>
+                        <div class="param">
+                            <label
+                                ><span class="fa-label">رشد علف</span
+                                ><span class="val" id="vGrassRate"
+                                    >3</span
+                                ></label
+                            >
+                            <input
+                                type="range"
+                                id="pGrassRate"
+                                min="1"
+                                max="10"
+                                value="3"
+                            />
+                        </div>
+                        <div class="param">
+                            <label
+                                ><span class="fa-label"
+                                    >آستانه زادولد گوسفند</span
+                                ><span class="val" id="vSheepBreed"
+                                    >12</span
+                                ></label
+                            >
+                            <input
+                                type="range"
+                                id="pSheepBreed"
+                                min="4"
+                                max="30"
+                                value="12"
+                            />
+                        </div>
+                        <div class="param fox-p">
+                            <label
+                                ><span class="fa-label"
+                                    >آستانه زادولد روباه</span
+                                ><span class="val" id="vFoxBreed"
+                                    >18</span
+                                ></label
+                            >
+                            <input
+                                type="range"
+                                id="pFoxBreed"
+                                min="6"
+                                max="40"
+                                value="18"
+                            />
+                        </div>
+                        <div class="param fox-p">
+                            <label
+                                ><span class="fa-label"
+                                    >گرسنگی تا مرگ (ثانیه)</span
+                                ><span class="val" id="vStarve"
+                                    >5.0</span
+                                ></label
+                            >
+                            <input
+                                type="range"
+                                id="pStarve"
+                                min="2"
+                                max="15"
+                                step="0.5"
+                                value="5"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-head">
+                        <span class="tag">POPULATION_LOG</span
+                        ><span class="fa">نمودار جمعیت</span>
+                    </div>
+                    <canvas id="chartCanvas" height="180"></canvas>
+                    <div class="chart-legend">
+                        <div class="lg">
+                            <span
+                                class="dot"
+                                style="background: var(--sheep)"
+                            ></span
+                            ><span class="fa">گوسفند</span>
+                        </div>
+                        <div class="lg">
+                            <span
+                                class="dot"
+                                style="background: var(--fox)"
+                            ></span
+                            ><span class="fa">روباه</span>
+                        </div>
+                        <div class="lg">
+                            <span
+                                class="dot"
+                                style="background: var(--acid-dim)"
+                            ></span
+                            ><span class="fa">علف (میانگین×0.2)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top: 14px">
+                <div class="panel-head">
+                    <span class="tag">EVENT_LOG</span
+                    ><span class="fa">رویدادها</span>
+                </div>
+                <div class="log fa" id="eventLog"></div>
+            </div>
+
+            <footer>
+                RULE_SET: GRASS_REGROWS · SHEEP_DIE_ONLY_BY_PREDATION ·
+                FOX_DIES_AFTER_STARVE_TIMER · BREED_REQUIRES_ENERGY
+            </footer>
+        </div>
+
+        <div class="verdict" id="verdictOverlay">
+            <div class="verdict-box" id="verdictBox">
+                <div class="verdict-icon" id="verdictIcon">🐑</div>
+                <div class="verdict-title">SIMULATION TERMINATED</div>
+                <div class="verdict-result" id="verdictResult">SHEEP WIN</div>
+                <div class="verdict-detail fa" id="verdictDetail">
+                    روباه‌ها منقرض شدند و گوسفندان زمین را تصاحب کردند.
+                </div>
+                <div class="verdict-stats">
+                    <div>TICKS<b id="vTicks">0</b></div>
+                    <div>PEAK SHEEP<b id="vPeakSheep">0</b></div>
+                    <div>PEAK FOX<b id="vPeakFox">0</b></div>
+                </div>
+                <button class="primary" id="btnRestart" style="flex: none">
+                    RESTART SIMULATION
+                </button>
+            </div>
+        </div>
+
+        <script>
+            (function () {
+                "use strict";
+
+                // ---------- CONFIG / GRID ----------
+                const COLS = 40,
+                    ROWS = 30,
+                    CELL = 16;
+                const fieldCanvas = document.getElementById("fieldCanvas");
+                const fctx = fieldCanvas.getContext("2d");
+                fieldCanvas.width = COLS * CELL;
+                fieldCanvas.height = ROWS * CELL;
+
+                const chartCanvas = document.getElementById("chartCanvas");
+                const cctx = chartCanvas.getContext("2d");
+
+                function resizeCanvases() {
+                    const w = fieldCanvas.parentElement.clientWidth;
+                    fieldCanvas.style.width = w + "px";
+                    fieldCanvas.style.height = (w * ROWS) / COLS + "px";
+                    chartCanvas.width = chartCanvas.parentElement.clientWidth;
+                    chartCanvas.height = 180;
+                }
+                window.addEventListener("resize", resizeCanvases);
+
+                // ---------- STATE ----------
+                let grass = []; // 0..GRASS_MAX growth value per cell
+                let sheep = []; // {x,y,energy,id}
+                let foxes = []; // {x,y,energy,starveTimer,id}
+                let tick = 0;
+                let running = false;
+                let speed = 2; // ticks per animation frame
+                let uid = 1;
+                let history = []; // {t, sheep, fox, grassAvg}
+                let peakSheep = 0,
+                    peakFox = 0;
+                let ended = false;
+                let rafId = null;
+                let lastFrameTime = 0;
+                const TICK_MS = 140; // base ms per tick at speed=1
+
+                const GRASS_MAX = 10;
+                const SHEEP_EAT_GAIN = 5;
+                const SHEEP_MOVE_COST = 0.45;
+                const SHEEP_BREED_COST = 8;
+                const FOX_EAT_GAIN = 14;
+                const FOX_MOVE_COST = 0.6;
+                const FOX_BREED_COST = 12;
+
+                let PARAMS = {
+                    initSheep: 20,
+                    initFox: 30,
+                    grassRate: 3, // chance-ish per tick growth speed
+                    sheepBreedThresh: 12,
+                    foxBreedThresh: 18,
+                    starveSeconds: 5.0,
+                };
+
+                // ---------- DOM ----------
+                const el = (id) => document.getElementById(id);
+                const sheepCountEl = el("sheepCount");
+                const foxCountEl = el("foxCount");
+                const grassAvgEl = el("grassAvg");
+                const tickClockEl = el("tickClock");
+                const logEl = el("eventLog");
+                const verdictOverlay = el("verdictOverlay");
+
+                function logEvent(msg, cls) {
+                    const div = document.createElement("div");
+                    div.className = "entry " + (cls || "");
+                    div.innerHTML = `<span class="t">T${String(tick).padStart(4, "0")}</span><span class="msg">${msg}</span>`;
+                    logEl.prepend(div);
+                    while (logEl.children.length > 60)
+                        logEl.removeChild(logEl.lastChild);
+                }
+
+                // ---------- INIT ----------
+                function initGrass() {
+                    grass = new Array(COLS * ROWS)
+                        .fill(0)
+                        .map(() => GRASS_MAX * (0.4 + Math.random() * 0.6));
+                }
+                function idx(x, y) {
+                    return y * COLS + x;
+                }
+
+                function spawnSheep(n) {
+                    for (let i = 0; i < n; i++) {
+                        sheep.push({
+                            id: uid++,
+                            x: Math.random() * COLS,
+                            y: Math.random() * ROWS,
+                            energy: 8 + Math.random() * 4,
+                        });
+                    }
+                }
+                function spawnFoxes(n) {
+                    for (let i = 0; i < n; i++) {
+                        foxes.push({
+                            id: uid++,
+                            x: Math.random() * COLS,
+                            y: Math.random() * ROWS,
+                            energy: 10 + Math.random() * 4,
+                            starve: 0,
+                        });
+                    }
+                }
+
+                function resetSim() {
+                    cancelAnimationFrame(rafId);
+                    running = false;
+                    el("btnPlay").textContent = "▶";
+                    tick = 0;
+                    uid = 1;
+                    ended = false;
+                    sheep = [];
+                    foxes = [];
+                    history = [];
+                    peakSheep = 0;
+                    peakFox = 0;
+                    initGrass();
+                    spawnSheep(PARAMS.initSheep);
+                    spawnFoxes(PARAMS.initFox);
+                    logEl.innerHTML = "";
+                    logEvent(
+                        "سیستم راه‌اندازی شد. شبیه‌سازی آغاز شد.",
+                        "system",
+                    );
+                    verdictOverlay.classList.remove("show");
+                    updateStatusUI();
+                    drawField();
+                    drawChart();
+                }
+
+                // ---------- SIM STEP ----------
+                function wrap(v, max) {
+                    v = v % max;
+                    if (v < 0) v += max;
+                    return v;
+                }
+
+                function stepGrass() {
+                    for (let i = 0; i < grass.length; i++) {
+                        if (grass[i] < GRASS_MAX) {
+                            grass[i] = Math.min(
+                                GRASS_MAX,
+                                grass[i] +
+                                    0.01 *
+                                        PARAMS.grassRate *
+                                        (0.6 + Math.random() * 0.8),
+                            );
+                        }
+                    }
+                }
+
+                function nearestTarget(creature, list) {
+                    let best = null,
+                        bestD = Infinity;
+                    for (const t of list) {
+                        let dx = t.x - creature.x,
+                            dy = t.y - creature.y;
+                        // toroidal distance
+                        if (Math.abs(dx) > COLS / 2)
+                            dx = dx - Math.sign(dx) * COLS;
+                        if (Math.abs(dy) > ROWS / 2)
+                            dy = dy - Math.sign(dy) * ROWS;
+                        const d = dx * dx + dy * dy;
+                        if (d < bestD) {
+                            bestD = d;
+                            best = t;
+                        }
+                    }
+                    return best;
+                }
+
+                function moveToward(creature, tx, ty, speedMag) {
+                    let dx = tx - creature.x,
+                        dy = ty - creature.y;
+                    if (Math.abs(dx) > COLS / 2) dx = dx - Math.sign(dx) * COLS;
+                    if (Math.abs(dy) > ROWS / 2) dy = dy - Math.sign(dy) * ROWS;
+                    const d = Math.hypot(dx, dy) || 1;
+                    creature.x = wrap(creature.x + (dx / d) * speedMag, COLS);
+                    creature.y = wrap(creature.y + (dy / d) * speedMag, ROWS);
+                }
+
+                function randomWander(creature, speedMag) {
+                    const ang = Math.random() * Math.PI * 2;
+                    creature.x = wrap(
+                        creature.x + Math.cos(ang) * speedMag,
+                        COLS,
+                    );
+                    creature.y = wrap(
+                        creature.y + Math.sin(ang) * speedMag,
+                        ROWS,
+                    );
+                }
+
+                const SHEEP_VISION = 6;
+                const FOX_VISION = 8;
+
+                function stepSheep() {
+                    const newSheep = [];
+                    for (const s of sheep) {
+                        const cx = Math.floor(wrap(s.x, COLS)),
+                            cy = Math.floor(wrap(s.y, ROWS));
+                        const g = grass[idx(cx, cy)];
+
+                        // find nearby predator to flee (within vision)
+                        let fleeTarget = null,
+                            fleeD = Infinity;
+                        for (const f of foxes) {
+                            let dx = f.x - s.x,
+                                dy = f.y - s.y;
+                            if (Math.abs(dx) > COLS / 2)
+                                dx -= Math.sign(dx) * COLS;
+                            if (Math.abs(dy) > ROWS / 2)
+                                dy -= Math.sign(dy) * ROWS;
+                            const d = dx * dx + dy * dy;
+                            if (d < SHEEP_VISION * SHEEP_VISION && d < fleeD) {
+                                fleeD = d;
+                                fleeTarget = f;
+                            }
+                        }
+
+                        if (fleeTarget) {
+                            // move away
+                            moveToward(
+                                s,
+                                s.x * 2 - fleeTarget.x,
+                                s.y * 2 - fleeTarget.y,
+                                0.5,
+                            );
+                        } else if (g < GRASS_MAX * 0.5) {
+                            // seek best grass cell in small neighborhood
+                            let bestX = cx,
+                                bestY = cy,
+                                bestG = g;
+                            for (let dx = -2; dx <= 2; dx++) {
+                                for (let dy = -2; dy <= 2; dy++) {
+                                    const nx = wrap(cx + dx, COLS),
+                                        ny = wrap(cy + dy, ROWS);
+                                    const ng = grass[idx(nx, ny)];
+                                    if (ng > bestG) {
+                                        bestG = ng;
+                                        bestX = nx;
+                                        bestY = ny;
+                                    }
+                                }
+                            }
+                            moveToward(s, bestX + 0.5, bestY + 0.5, 0.32);
+                        } else {
+                            randomWander(s, 0.22);
+                        }
+
+                        // eat
+                        const ix = idx(cx, cy);
+                        if (grass[ix] > 0.5) {
+                            const eaten = Math.min(grass[ix], 1.4);
+                            grass[ix] -= eaten;
+                            s.energy += eaten * (SHEEP_EAT_GAIN / 1.4) * 0.3;
+                        }
+
+                        s.energy -= SHEEP_MOVE_COST;
+
+                        newSheep.push(s);
+                    }
+
+                    // breeding (energy based, no death from hunger per rules)
+                    const born = [];
+                    for (const s of newSheep) {
+                        if (
+                            s.energy >= PARAMS.sheepBreedThresh &&
+                            Math.random() < 0.1
+                        ) {
+                            s.energy -= SHEEP_BREED_COST;
+                            born.push({
+                                id: uid++,
+                                x: wrap(
+                                    s.x + (Math.random() - 0.5) * 1.5,
+                                    COLS,
+                                ),
+                                y: wrap(
+                                    s.y + (Math.random() - 0.5) * 1.5,
+                                    ROWS,
+                                ),
+                                energy: SHEEP_BREED_COST * 0.6,
+                            });
+                        }
+                        // clamp energy so they don't grow unbounded
+                        if (s.energy > 40) s.energy = 40;
+                        if (s.energy < 0) s.energy = 0;
+                    }
+                    if (born.length)
+                        logEvent(
+                            `${born.length} گوسفند تازه متولد شد.`,
+                            "sheep-event",
+                        );
+
+                    sheep = newSheep.concat(born);
+                }
+
+                function stepFoxes(dtSeconds) {
+                    const newFoxes = [];
+                    const eatenSheepIds = new Set();
+
+                    // sort foxes by nothing special; handle hunting with simple proximity capture
+                    for (const f of foxes) {
+                        const target = nearestTarget(
+                            f,
+                            sheep.filter((s) => !eatenSheepIds.has(s.id)),
+                        );
+                        if (target) {
+                            const dx0 = target.x - f.x,
+                                dy0 = target.y - f.y;
+                            let dx = dx0,
+                                dy = dy0;
+                            if (Math.abs(dx) > COLS / 2)
+                                dx -= Math.sign(dx) * COLS;
+                            if (Math.abs(dy) > ROWS / 2)
+                                dy -= Math.sign(dy) * ROWS;
+                            const dist = Math.hypot(dx, dy);
+                            if (dist < FOX_VISION) {
+                                moveToward(f, target.x, target.y, 0.55);
+                                if (dist < 0.6) {
+                                    // catch!
+                                    eatenSheepIds.add(target.id);
+                                    f.energy += FOX_EAT_GAIN;
+                                    f.starve = 0;
+                                    logEvent(
+                                        `روباه #${f.id} گوسفند #${target.id} را شکار کرد.`,
+                                        "fox-event",
+                                    );
+                                }
+                            } else {
+                                randomWander(f, 0.28);
+                            }
+                        } else {
+                            randomWander(f, 0.28);
+                        }
+
+                        f.energy -= FOX_MOVE_COST;
+
+                        if (f.energy <= 0) {
+                            f.starve += dtSeconds;
+                        } else {
+                            f.starve = Math.max(0, f.starve - dtSeconds * 0.5);
+                        }
+
+                        if (f.starve < PARAMS.starveSeconds) {
+                            newFoxes.push(f);
+                        } else {
+                            logEvent(
+                                `روباه #${f.id} از گرسنگی مرد.`,
+                                "fox-event",
+                            );
+                        }
+                    }
+
+                    // remove eaten sheep
+                    if (eatenSheepIds.size) {
+                        sheep = sheep.filter((s) => !eatenSheepIds.has(s.id));
+                    }
+
+                    // breeding
+                    const born = [];
+                    for (const f of newFoxes) {
+                        if (
+                            f.energy >= PARAMS.foxBreedThresh &&
+                            Math.random() < 0.06
+                        ) {
+                            f.energy -= FOX_BREED_COST;
+                            born.push({
+                                id: uid++,
+                                x: wrap(
+                                    f.x + (Math.random() - 0.5) * 1.5,
+                                    COLS,
+                                ),
+                                y: wrap(
+                                    f.y + (Math.random() - 0.5) * 1.5,
+                                    ROWS,
+                                ),
+                                energy: FOX_BREED_COST * 0.5,
+                                starve: 0,
+                            });
+                        }
+                        if (f.energy > 50) f.energy = 50;
+                    }
+                    if (born.length)
+                        logEvent(
+                            `${born.length} توله روباه متولد شد.`,
+                            "fox-event",
+                        );
+
+                    foxes = newFoxes.concat(born);
+                }
+
+                const TICK_REAL_SECONDS = TICK_MS / 1000; // each simTick represents this many real seconds of starvation time
+
+                function simTick() {
+                    if (ended) return;
+                    tick++;
+                    stepGrass();
+                    stepSheep();
+                    stepFoxes(TICK_REAL_SECONDS); // starve timer accrues in real seconds, independent of playback speed
+                    peakSheep = Math.max(peakSheep, sheep.length);
+                    peakFox = Math.max(peakFox, foxes.length);
+
+                    let gAvg = 0;
+                    for (let i = 0; i < grass.length; i++) gAvg += grass[i];
+                    gAvg /= grass.length;
+
+                    history.push({
+                        t: tick,
+                        sheep: sheep.length,
+                        fox: foxes.length,
+                        grass: gAvg,
+                    });
+                    if (history.length > 400) history.shift();
+
+                    checkEndConditions(gAvg);
+                }
+
+                function checkEndConditions() {
+                    if (ended) return;
+                    if (sheep.length === 0 && foxes.length === 0) {
+                        endSim("draw");
+                    } else if (foxes.length === 0) {
+                        endSim("sheep");
+                    } else if (sheep.length === 0 && foxes.length > 0) {
+                        // sheep extinct, foxes still alive but will starve soon - keep simulating
+                        // no immediate end; will resolve to draw or fox-extinct shortly after
+                    }
+                }
+
+                function endSim(result) {
+                    ended = true;
+                    running = false;
+                    cancelAnimationFrame(rafId);
+                    el("btnPlay").textContent = "▶";
+
+                    const overlay = verdictOverlay;
+                    const box = el("verdictBox");
+                    box.classList.remove("fox-win");
+
+                    if (result === "sheep") {
+                        el("verdictIcon").textContent = "🐑";
+                        el("verdictResult").textContent =
+                            "SHEEP WIN — شکار منقرض شد";
+                        el("verdictResult").className =
+                            "verdict-result sheep-c";
+                        el("verdictDetail").innerHTML =
+                            "تمام روباه‌ها از گرسنگی مردند. <b>گوسفندان</b> زمین را تصاحب کردند و علف‌زار را غرق در جمعیت کردند.";
+                        logEvent(
+                            "🏆 پایان: روباه‌ها منقرض شدند. گوسفندان برنده شدند.",
+                            "system",
+                        );
+                    } else if (result === "fox") {
+                        box.classList.add("fox-win");
+                        el("verdictIcon").textContent = "🦊";
+                        el("verdictResult").textContent =
+                            "FOX WIN — شکارچی غالب شد";
+                        el("verdictResult").className = "verdict-result fox-c";
+                        el("verdictDetail").innerHTML =
+                            "<b>گوسفندان</b> تماماً شکار شدند. روباه‌ها اکنون باید برای جیره باقی‌مانده با هم بجنگند یا منقرض شوند.";
+                        logEvent(
+                            "🏆 پایان: گوسفندان منقرض شدند. روباه‌ها برنده شدند.",
+                            "system",
+                        );
+                    } else {
+                        el("verdictIcon").textContent = "☠";
+                        el("verdictResult").textContent =
+                            "EXTINCTION — هر دو منقرض شدند";
+                        el("verdictResult").className = "verdict-result draw-c";
+                        el("verdictDetail").innerHTML =
+                            "روباه‌ها شکار را تا آخر خوردند، سپس خودشان هم از گرسنگی مردند. <b>هیچ گونه‌ای</b> باقی نماند.";
+                        logEvent("☠ پایان: هر دو گونه منقرض شدند.", "system");
+                    }
+
+                    el("vTicks").textContent = tick;
+                    el("vPeakSheep").textContent = peakSheep;
+                    el("vPeakFox").textContent = peakFox;
+
+                    overlay.classList.add("show");
+                    updateStatusUI();
+                    drawField();
+                    drawChart();
+                }
+
+                // ---------- DRAW ----------
+                function drawField() {
+                    fctx.clearRect(0, 0, fieldCanvas.width, fieldCanvas.height);
+                    for (let y = 0; y < ROWS; y++) {
+                        for (let x = 0; x < COLS; x++) {
+                            const g = grass[idx(x, y)] / GRASS_MAX;
+                            const r = Math.round(8 + g * 5);
+                            const gr = Math.round(20 + g * 60);
+                            const b = Math.round(12 + g * 30);
+                            fctx.fillStyle = `rgb(${r},${gr},${b})`;
+                            fctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+                        }
+                    }
+                    // sheep
+                    fctx.fillStyle = "#eef5ef";
+                    for (const s of sheep) {
+                        fctx.beginPath();
+                        fctx.arc(
+                            s.x * CELL,
+                            s.y * CELL,
+                            CELL * 0.28,
+                            0,
+                            Math.PI * 2,
+                        );
+                        fctx.fill();
+                    }
+                    // foxes
+                    fctx.fillStyle = "#ff5a3c";
+                    for (const f of foxes) {
+                        fctx.beginPath();
+                        fctx.arc(
+                            f.x * CELL,
+                            f.y * CELL,
+                            CELL * 0.34,
+                            0,
+                            Math.PI * 2,
+                        );
+                        fctx.fill();
+                        if (f.starve > 0) {
+                            fctx.strokeStyle =
+                                "rgba(255,204,51," +
+                                Math.min(1, f.starve / PARAMS.starveSeconds) +
+                                ")";
+                            fctx.lineWidth = 2;
+                            fctx.beginPath();
+                            fctx.arc(
+                                f.x * CELL,
+                                f.y * CELL,
+                                CELL * 0.5,
+                                0,
+                                Math.PI * 2 * (f.starve / PARAMS.starveSeconds),
+                            );
+                            fctx.stroke();
+                        }
+                    }
+                }
+
+                function drawChart() {
+                    const w = chartCanvas.width,
+                        h = chartCanvas.height;
+                    cctx.clearRect(0, 0, w, h);
+                    if (history.length < 2) return;
+
+                    const maxPop = Math.max(
+                        10,
+                        ...history.map((p) => Math.max(p.sheep, p.fox)),
+                    );
+                    const padding = { l: 8, r: 8, t: 10, b: 10 };
+                    const plotW = w - padding.l - padding.r;
+                    const plotH = h - padding.t - padding.b;
+
+                    // gridlines
+                    cctx.strokeStyle = "rgba(255,255,255,0.04)";
+                    cctx.lineWidth = 1;
+                    for (let i = 0; i <= 4; i++) {
+                        const yy = padding.t + (plotH / 4) * i;
+                        cctx.beginPath();
+                        cctx.moveTo(padding.l, yy);
+                        cctx.lineTo(w - padding.r, yy);
+                        cctx.stroke();
+                    }
+
+                    function plot(key, color, scale) {
+                        cctx.strokeStyle = color;
+                        cctx.lineWidth = 1.6;
+                        cctx.beginPath();
+                        history.forEach((p, i) => {
+                            const x =
+                                padding.l + (i / (history.length - 1)) * plotW;
+                            const v = (p[key] * scale) / maxPop;
+                            const y = padding.t + plotH - v * plotH;
+                            if (i === 0) cctx.moveTo(x, y);
+                            else cctx.lineTo(x, y);
+                        });
+                        cctx.stroke();
+                    }
+
+                    plot("grass", "rgba(31,122,58,0.7)", 0.2);
+                    plot("sheep", "#eef5ef", 1);
+                    plot("fox", "#ff5a3c", 1);
+                }
+
+                function updateStatusUI() {
+                    sheepCountEl.textContent = sheep.length;
+                    foxCountEl.textContent = foxes.length;
+                    let gAvg = 0;
+                    for (let i = 0; i < grass.length; i++) gAvg += grass[i];
+                    gAvg = (gAvg / grass.length).toFixed(1);
+                    grassAvgEl.textContent = gAvg;
+                    tickClockEl.textContent =
+                        "TICK " + String(tick).padStart(4, "0");
+                }
+
+                // ---------- LOOP ----------
+                function loop(timestamp) {
+                    if (!running) return;
+                    if (!lastFrameTime) lastFrameTime = timestamp;
+                    const elapsed = timestamp - lastFrameTime;
+                    const interval = TICK_MS / speed;
+                    if (elapsed >= interval) {
+                        lastFrameTime = timestamp;
+                        simTick();
+                        updateStatusUI();
+                        drawField();
+                        drawChart();
+                    }
+                    rafId = requestAnimationFrame(loop);
+                }
+
+                // ---------- CONTROLS ----------
+                el("btnPlay").addEventListener("click", () => {
+                    if (ended) return;
+                    running = !running;
+                    el("btnPlay").textContent = running ? "❚❚" : "▶";
+                    if (running) {
+                        lastFrameTime = 0;
+                        rafId = requestAnimationFrame(loop);
+                    } else cancelAnimationFrame(rafId);
+                });
+
+                el("btnStep").addEventListener("click", () => {
+                    if (ended) return;
+                    simTick();
+                    updateStatusUI();
+                    drawField();
+                    drawChart();
+                });
+
+                el("btnReset").addEventListener("click", resetSim);
+                el("btnRestart").addEventListener("click", resetSim);
+
+                document
+                    .querySelectorAll(".speed-group button")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            document
+                                .querySelectorAll(".speed-group button")
+                                .forEach((b) => b.classList.remove("active"));
+                            btn.classList.add("active");
+                            speed = parseInt(btn.dataset.speed, 10);
+                        });
+                    });
+
+                function bindParam(rangeId, valId, key, fmt) {
+                    const r = el(rangeId),
+                        v = el(valId);
+                    r.addEventListener("input", () => {
+                        const val = parseFloat(r.value);
+                        PARAMS[key] = val;
+                        v.textContent = fmt ? fmt(val) : val;
+                    });
+                }
+                bindParam("pInitSheep", "vInitSheep", "initSheep");
+                bindParam("pInitFox", "vInitFox", "initFox");
+                bindParam("pGrassRate", "vGrassRate", "grassRate");
+                bindParam("pSheepBreed", "vSheepBreed", "sheepBreedThresh");
+                bindParam("pFoxBreed", "vFoxBreed", "foxBreedThresh");
+                bindParam("pStarve", "vStarve", "starveSeconds", (v) =>
+                    v.toFixed(1),
+                );
+
+                // changing init counts triggers reset only on explicit reset button (avoid surprise resets while running)
+
+                // ---------- BOOT ----------
+                resizeCanvases();
+                resetSim();
+            })();
+        </script>
+    </body>
+</html>
