@@ -9,3 +9,5 @@ what i learn :
           problem !
               is okay to publish security apps?
                   or it will be weakness of me ?
+    4 ---->
+          -------------------------data lake / and identity lead------------------------
