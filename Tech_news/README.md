@@ -1,6 +1,6 @@
 # ⚡ TechPulse News Bot
 
-> Automated Tech News Collector with Persian Translation — @black8arch
+> Automated Tech News Collector with Persian Translation — @Rwin-X
 
 ---
 
