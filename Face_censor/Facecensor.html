@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FACECENSOR // local face redaction</title>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<style>
+  :root{
+    --bg-0:#0a0a0a;
+    --bg-1:#111113;
+    --bg-2:#181819;
+    --bg-3:#1d1d20;
+    --border:#2a2a2c;
+    --text-pri:#e8e8e8;
+    --text-sec:#8a8a8e;
+    --accent:#3ddc97;
+    --accent-dim:#1f6b4d;
+    --accent-bright:#4ce8a6;
+    --danger:#e0453f;
+    --white:#f5f5f5;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg-0);
+    color:var(--text-pri);
+    font-family:'JetBrains Mono','Consolas','SF Mono','Courier New',monospace;
+    font-size:13px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  #app{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    padding:16px;
+    gap:10px;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    padding-bottom:4px;
+  }
+  .title-block h1{
+    margin:0;
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:1.5px;
+    color:var(--white);
+  }
+  .title-block p{
+    margin:2px 0 0 0;
+    font-size:11px;
+    color:var(--text-sec);
+  }
+  .status{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:11px;
+    color:var(--text-sec);
+    letter-spacing:0.5px;
+  }
+  .status .dot{
+    width:7px; height:7px;
+    border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 6px var(--accent);
+  }
+  .status.loading .dot{ background:#c9a23d; box-shadow:0 0 6px #c9a23d; animation:pulse 1.2s infinite; }
+  .status.error .dot{ background:var(--danger); box-shadow:0 0 6px var(--danger); animation:none; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+  /* ---------- LAYOUT ---------- */
+  .layout{
+    flex:1;
+    display:grid;
+    grid-template-columns: 250px 1fr 280px;
+    gap:10px;
+    min-height:0;
+  }
+
+  .panel{
+    background:var(--bg-1);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden;
+  }
+
+  .section-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:var(--text-sec);
+    margin-bottom:8px;
+  }
+
+  /* ---------- DROP ZONE ---------- */
+  .drop-zone{
+    border:1px dashed var(--border);
+    border-radius:8px;
+    min-height:110px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    text-align:center;
+    padding:10px;
+  }
+  .drop-zone.active{
+    border-color:var(--accent);
+    background:var(--bg-2);
+  }
+  .drop-zone .icon{ font-size:26px; color:var(--text-sec); }
+  .drop-zone .label{ font-size:11px; color:var(--text-sec); }
+  #fileInput{ display:none; }
+
+  .btn-row{ display:flex; gap:8px; margin-top:8px; }
+
+  button{
+    background:var(--bg-2);
+    color:var(--text-pri);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:8px 12px;
+    font-family:inherit;
+    font-size:12px;
+    font-weight:500;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  button:hover:not(:disabled){
+    border-color:var(--accent-dim);
+    background:var(--bg-3);
+  }
+  button:disabled{
+    color:var(--text-sec);
+    cursor:not-allowed;
+    opacity:0.6;
+  }
+  button.flex{ flex:1; }
+  button.primary{
+    background:var(--accent);
+    color:var(--bg-0);
+    border:none;
+    font-weight:700;
+  }
+  button.primary:hover:not(:disabled){ background:var(--accent-bright); }
+  button.primary:disabled{ background:var(--bg-2); color:var(--text-sec); }
+  button.danger{ border-color:var(--danger); color:var(--danger); }
+  button.danger:hover{ background:#2a1414; }
+
+  /* ---------- QUEUE LIST ---------- */
+  #queueList{
+    flex:1;
+    overflow-y:auto;
+    margin-top:10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--bg-1);
+  }
+  .queue-item{
+    padding:8px 10px;
+    font-size:11.5px;
+    border-bottom:1px solid var(--border);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  .queue-item span.name{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .queue-item:last-child{ border-bottom:none; }
+  .queue-item:hover{ background:var(--bg-2); }
+  .queue-item.selected{ background:var(--accent-dim); color:var(--white); }
+  .queue-item .badge{
+    font-size:9px;
+    color:var(--text-sec);
+    flex-shrink:0;
+  }
+  .queue-item.selected .badge{ color:var(--white); opacity:0.8; }
+  .queue-item .remove-x{
+    flex-shrink:0;
+    color:var(--text-sec);
+    font-size:13px;
+    padding:0 2px;
+  }
+  .queue-item .remove-x:hover{ color:var(--danger); }
+
+  /* ---------- PREVIEW ---------- */
+  .preview-wrap{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  .preview-area{
+    flex:1;
+    background:var(--bg-0);
+    border:1px solid var(--border);
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    position:relative;
+    min-height:0;
+  }
+  .preview-area canvas{
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+  }
+  .preview-placeholder{
+    color:var(--text-sec);
+    font-size:12px;
+    text-align:center;
+  }
+  .preview-info{
+    display:flex;
+    justify-content:space-between;
+    padding-top:6px;
+    font-size:11px;
+    color:var(--text-sec);
+  }
+  .spinner-overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(10,10,10,0.7);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:10px;
+    font-size:11px;
+    color:var(--text-sec);
+  }
+  .spinner{
+    width:24px; height:24px;
+    border:2px solid var(--border);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- CONTROLS ---------- */
+  .controls-scroll{
+    flex:1;
+    overflow-y:auto;
+    padding-right:2px;
+  }
+  select{
+    width:100%;
+    background:var(--bg-2);
+    color:var(--text-pri);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:8px 10px;
+    font-family:inherit;
+    font-size:12px;
+  }
+
+  .group{
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:10px;
+    margin-top:12px;
+  }
+  .group-title{
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:var(--text-sec);
+    margin-bottom:8px;
+  }
+  .field-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .field-row:last-child{ margin-bottom:0; }
+  .field-row label{
+    font-size:11px;
+    color:var(--text-pri);
+    flex-shrink:0;
+  }
+  .field-row .value{
+    font-size:11px;
+    color:var(--accent);
+    min-width:28px;
+    text-align:right;
+  }
+  input[type="range"]{
+    flex:1;
+    -webkit-appearance:none;
+    height:4px;
+    background:var(--border);
+    border-radius:2px;
+    outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:13px; height:13px;
+    border-radius:50%;
+    background:var(--accent);
+    cursor:pointer;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:13px; height:13px;
+    border-radius:50%;
+    background:var(--accent);
+    border:none;
+    cursor:pointer;
+  }
+  input[type="number"]{
+    width:60px;
+    background:var(--bg-2);
+    color:var(--text-pri);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:5px 6px;
+    font-family:inherit;
+    font-size:11px;
+  }
+
+  .checkbox-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:11px;
+    color:var(--text-pri);
+    cursor:pointer;
+  }
+  input[type="checkbox"]{
+    width:14px; height:14px;
+    accent-color:var(--accent);
+    cursor:pointer;
+  }
+
+  .out-dir-label{
+    font-size:10px;
+    color:var(--text-sec);
+    margin-top:6px;
+    word-break:break-all;
+  }
+
+  #progressWrap{
+    margin-top:10px;
+    display:none;
+  }
+  #progressBar{
+    width:100%;
+    height:14px;
+    background:var(--bg-2);
+    border:1px solid var(--border);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  #progressFill{
+    height:100%;
+    width:0%;
+    background:var(--accent);
+    transition:width .2s;
+  }
+  #progressLabel{
+    font-size:10px;
+    color:var(--text-sec);
+    margin-top:4px;
+    text-align:center;
+  }
+
+  /* ---------- STATUS BAR ---------- */
+  footer{
+    border-top:1px solid var(--border);
+    padding-top:8px;
+    font-size:11px;
+    color:var(--text-sec);
+  }
+
+  /* scrollbars */
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-track{ background:var(--bg-0); }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--text-sec); }
+
+  @media (max-width:880px){
+    .layout{ grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
+    .panel{ max-height:none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="title-block">
+      <h1>FACECENSOR</h1>
+      <p>local · offline · runs entirely in your browser, no uploads</p>
+    </div>
+    <div class="status loading" id="statusIndicator">
+      <span class="dot"></span>
+      <span id="statusText">LOADING MODELS…</span>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- LEFT: QUEUE -->
+    <div class="panel">
+      <div class="section-label">QUEUE</div>
+      <div class="drop-zone" id="dropZone">
+        <div class="icon">⛁</div>
+        <div class="label">Drag &amp; drop images here<br>or click to browse</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" multiple>
+      <div class="btn-row">
+        <button class="flex" id="browseBtn">Browse Files</button>
+        <button class="danger" id="clearBtn">Clear</button>
+      </div>
+      <div id="queueList"></div>
+    </div>
+
+    <!-- CENTER: PREVIEW -->
+    <div class="panel">
+      <div class="section-label">PREVIEW</div>
+      <div class="preview-wrap">
+        <div class="preview-area" id="previewArea">
+          <div class="preview-placeholder" id="previewPlaceholder">No image loaded</div>
+          <canvas id="previewCanvas" style="display:none;"></canvas>
+          <div class="spinner-overlay" id="spinnerOverlay" style="display:none;">
+            <div class="spinner"></div>
+            <span id="spinnerLabel">Detecting faces…</span>
+          </div>
+        </div>
+        <div class="preview-info">
+          <span id="facesFoundLabel">Faces detected: —</span>
+          <span id="filenameLabel"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CONTROLS -->
+    <div class="panel">
+      <div class="section-label">CONTROLS</div>
+      <div class="controls-scroll">
+
+        <div class="group-title" style="margin-top:0;">REDACTION MODE</div>
+        <select id="modeSelect">
+          <option value="blur">Blur</option>
+          <option value="pixelate">Pixelate</option>
+          <option value="blackout">Black Box</option>
+        </select>
+
+        <div class="group">
+          <div class="group-title">INTENSITY</div>
+          <div class="field-row">
+            <input type="range" id="intensitySlider" min="1" max="20" value="14">
+            <span class="value" id="intensityValue">14</span>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-title">DETECTION TUNING</div>
+          <div class="field-row">
+            <label>Sensitivity</label>
+            <input type="range" id="sensitivitySlider" min="1" max="10" value="6" style="max-width:110px;">
+            <span class="value" id="sensitivityValue">6</span>
+          </div>
+          <div class="field-row">
+            <label>Min confidence</label>
+            <input type="range" id="confSlider" min="1" max="9" value="3" style="max-width:110px;">
+            <span class="value" id="confValue">0.3</span>
+          </div>
+          <div class="field-row">
+            <label>Box padding</label>
+            <input type="number" id="paddingInput" min="0" max="60" value="18">
+            <span class="value">%</span>
+          </div>
+          <label class="checkbox-row" style="margin-top:8px;">
+            <input type="checkbox" id="mirrorCheck">
+            Also scan mirrored image (slower, catches more profiles)
+          </label>
+        </div>
+
+        <div class="group-title">OUTPUT</div>
+        <div class="field-row" style="margin-bottom:4px;">
+          <label style="font-size:11px;color:var(--text-sec);">Format</label>
+          <select id="formatSelect" style="width:auto; padding:5px 8px;">
+            <option value="image/png">PNG</option>
+            <option value="image/jpeg">JPEG</option>
+          </select>
+        </div>
+
+      </div>
+
+      <button id="detectBtn" style="margin-top:10px;">Re-detect Faces</button>
+      <button id="saveCurrentBtn" style="margin-top:8px;">Save This Image</button>
+      <button class="primary" id="processAllBtn" style="margin-top:8px;">Process &amp; Download All</button>
+
+      <div id="progressWrap">
+        <div id="progressBar"><div id="progressFill"></div></div>
+        <div id="progressLabel">0 / 0</div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer id="statusBar">Loading face detection models from CDN…</footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============================================================
+  //  STATE
+  // ============================================================
+  const state = {
+    queue: [],            // { id, file, name, img(HTMLImageElement) }
+    currentId: null,
+    currentBoxes: [],      // [{x,y,w,h}] in natural image pixel coords (post-padding)
+    modelsReady: false,
+  };
+
+  const els = {
+    statusIndicator: document.getElementById('statusIndicator'),
+    statusText: document.getElementById('statusText'),
+    statusBar: document.getElementById('statusBar'),
+    dropZone: document.getElementById('dropZone'),
+    fileInput: document.getElementById('fileInput'),
+    browseBtn: document.getElementById('browseBtn'),
+    clearBtn: document.getElementById('clearBtn'),
+    queueList: document.getElementById('queueList'),
+    previewArea: document.getElementById('previewArea'),
+    previewPlaceholder: document.getElementById('previewPlaceholder'),
+    previewCanvas: document.getElementById('previewCanvas'),
+    spinnerOverlay: document.getElementById('spinnerOverlay'),
+    spinnerLabel: document.getElementById('spinnerLabel'),
+    facesFoundLabel: document.getElementById('facesFoundLabel'),
+    filenameLabel: document.getElementById('filenameLabel'),
+    modeSelect: document.getElementById('modeSelect'),
+    intensitySlider: document.getElementById('intensitySlider'),
+    intensityValue: document.getElementById('intensityValue'),
+    sensitivitySlider: document.getElementById('sensitivitySlider'),
+    sensitivityValue: document.getElementById('sensitivityValue'),
+    confSlider: document.getElementById('confSlider'),
+    confValue: document.getElementById('confValue'),
+    paddingInput: document.getElementById('paddingInput'),
+    mirrorCheck: document.getElementById('mirrorCheck'),
+    formatSelect: document.getElementById('formatSelect'),
+    detectBtn: document.getElementById('detectBtn'),
+    saveCurrentBtn: document.getElementById('saveCurrentBtn'),
+    processAllBtn: document.getElementById('processAllBtn'),
+    progressWrap: document.getElementById('progressWrap'),
+    progressFill: document.getElementById('progressFill'),
+    progressLabel: document.getElementById('progressLabel'),
+  };
+
+  const SUPPORTED_TYPES = ['image/jpeg','image/png','image/webp','image/bmp'];
+
+  function setStatus(text, kind) {
+    // kind: 'ok' | 'loading' | 'error'
+    els.statusText.textContent = text;
+    els.statusIndicator.className = 'status' + (kind === 'ok' ? '' : ' ' + kind);
+  }
+
+  function setStatusBar(text) {
+    els.statusBar.textContent = text;
+  }
+
+  // ============================================================
+  //  MODEL LOADING
+  // ============================================================
+  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
+
+  async function loadModels() {
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      state.modelsReady = true;
+      setStatus('READY', 'ok');
+      setStatusBar('Models loaded. Drop images or browse to begin — all processing stays on your device.');
+      els.processAllBtn.disabled = false;
+      els.detectBtn.disabled = false;
+      els.saveCurrentBtn.disabled = false;
+    } catch (err) {
+      console.error(err);
+      setStatus('MODEL LOAD FAILED', 'error');
+      setStatusBar('Could not load face detection models from CDN. Check your internet connection and reload the page.');
+    }
+  }
+
+  // Disable action buttons until models are ready
+  els.processAllBtn.disabled = true;
+  els.detectBtn.disabled = true;
+  els.saveCurrentBtn.disabled = true;
+
+  loadModels();
+
+  // ============================================================
+  //  QUEUE MANAGEMENT
+  // ============================================================
+  let idCounter = 0;
+
+  function addFiles(fileList) {
+    const files = Array.from(fileList).filter(f => SUPPORTED_TYPES.includes(f.type) || /\.(jpe?g|png|webp|bmp)$/i.test(f.name));
+    if (files.length === 0) {
+      setStatusBar('No supported image files found in selection.');
+      return;
+    }
+
+    let added = 0;
+    files.forEach(file => {
+      const id = ++idCounter;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        renderQueueItem(entry);
+        if (state.currentId === null) {
+          selectQueueItem(id);
+        }
+      };
+      img.src = url;
+      const entry = { id, file, name: file.name, img, url, boxesCache: null };
+      state.queue.push(entry);
+      added++;
+    });
+
+    setStatusBar(`Added ${added} file(s) — queue: ${state.queue.length}`);
+    renderFullQueue();
+  }
+
+  function renderFullQueue() {
+    els.queueList.innerHTML = '';
+    state.queue.forEach(entry => renderQueueItem(entry));
+  }
+
+  function renderQueueItem(entry) {
+    let row = document.getElementById('q-' + entry.id);
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'queue-item';
+      row.id = 'q-' + entry.id;
+      row.innerHTML = `<span class="name"></span><span class="badge"></span><span class="remove-x">✕</span>`;
+      row.querySelector('.remove-x').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFromQueue(entry.id);
+      });
+      row.addEventListener('click', () => selectQueueItem(entry.id));
+      els.queueList.appendChild(row);
+    }
+    row.querySelector('.name').textContent = entry.name;
+    row.querySelector('.badge').textContent = entry.boxesCache ? `${entry.boxesCache.length}f` : '';
+    row.classList.toggle('selected', entry.id === state.currentId);
+  }
+
+  function removeFromQueue(id) {
+    const idx = state.queue.findIndex(e => e.id === id);
+    if (idx === -1) return;
+    URL.revokeObjectURL(state.queue[idx].url);
+    state.queue.splice(idx, 1);
+    const row = document.getElementById('q-' + id);
+    if (row) row.remove();
+
+    if (state.currentId === id) {
+      state.currentId = null;
+      if (state.queue.length > 0) {
+        selectQueueItem(state.queue[0].id);
+      } else {
+        clearPreview();
+      }
+    }
+    setStatusBar(`Removed file — queue: ${state.queue.length}`);
+  }
+
+  function clearQueue() {
+    state.queue.forEach(e => URL.revokeObjectURL(e.url));
+    state.queue = [];
+    state.currentId = null;
+    state.currentBoxes = [];
+    els.queueList.innerHTML = '';
+    clearPreview();
+    setStatusBar('Queue cleared');
+  }
+
+  function clearPreview() {
+    els.previewCanvas.style.display = 'none';
+    els.previewPlaceholder.style.display = 'block';
+    els.facesFoundLabel.textContent = 'Faces detected: —';
+    els.filenameLabel.textContent = '';
+  }
+
+  async function selectQueueItem(id) {
+    state.currentId = id;
+    renderFullQueue();
+    const entry = state.queue.find(e => e.id === id);
+    if (!entry) return;
+    els.filenameLabel.textContent = entry.name;
+    await detectAndRender(entry);
+  }
+
+  // ============================================================
+  //  DETECTION SETTINGS
+  // ============================================================
+  function currentDetectorOptions() {
+    const sens = parseInt(els.sensitivitySlider.value, 10);   // 1-10
+    const confStep = parseInt(els.confSlider.value, 10);       // 1-9
+    const minConfidence = confStep / 10;                       // 0.1 - 0.9
+    // higher sensitivity -> smaller inputSize granularity -> more thorough but slower
+    const inputSizes = [128, 160, 224, 256, 320, 416, 512, 608, 704, 800];
+    const inputSize = inputSizes[Math.min(9, sens - 1)] || 416;
+    return new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: minConfidence });
+  }
+
+  function paddingPct() {
+    return parseInt(els.paddingInput.value, 10) || 0;
+  }
+
+  function expandBox(x, y, w, h, pct, imgW, imgH) {
+    const dx = (w * pct) / 100;
+    const dy = (h * pct) / 100;
+    let nx = Math.max(0, x - dx);
+    let ny = Math.max(0, y - dy);
+    let nw = Math.min(imgW - nx, w + 2 * dx);
+    let nh = Math.min(imgH - ny, h + 2 * dy);
+    return { x: nx, y: ny, w: nw, h: nh };
+  }
+
+  // simple overlap merge (IoU based) in case mirrored pass duplicates a box
+  function iou(a, b) {
+    const ax2 = a.x + a.w, ay2 = a.y + a.h;
+    const bx2 = b.x + b.w, by2 = b.y + b.h;
+    const ix1 = Math.max(a.x, b.x), iy1 = Math.max(a.y, b.y);
+    const ix2 = Math.min(ax2, bx2), iy2 = Math.min(ay2, by2);
+    if (ix2 <= ix1 || iy2 <= iy1) return 0;
+    const inter = (ix2 - ix1) * (iy2 - iy1);
+    const union = a.w * a.h + b.w * b.h - inter;
+    return union > 0 ? inter / union : 0;
+  }
+
+  function mergeBoxes(boxes, thresh = 0.3) {
+    const sorted = [...boxes].sort((a, b) => (b.w * b.h) - (a.w * a.h));
+    const merged = [];
+    for (const b of sorted) {
+      if (merged.every(m => iou(b, m) < thresh)) merged.push(b);
+    }
+    return merged;
+  }
+
+  // ============================================================
+  //  DETECTION
+  // ============================================================
+  async function detectFaces(imgEl) {
+    const options = currentDetectorOptions();
+    const detections = await faceapi.detectAllFaces(imgEl, options);
+    const pct = paddingPct();
+    const w = imgEl.naturalWidth, h = imgEl.naturalHeight;
+
+    let boxes = detections.map(d => {
+      const b = d.box;
+      return expandBox(b.x, b.y, b.width, b.height, pct, w, h);
+    });
+
+    if (els.mirrorCheck.checked) {
+      // run detection on a horizontally-flipped canvas to catch missed side-profiles
+      const flipCanvas = document.createElement('canvas');
+      flipCanvas.width = w; flipCanvas.height = h;
+      const fctx = flipCanvas.getContext('2d');
+      fctx.translate(w, 0); fctx.scale(-1, 1);
+      fctx.drawImage(imgEl, 0, 0, w, h);
+
+      const flippedDetections = await faceapi.detectAllFaces(flipCanvas, options);
+      const flippedBoxes = flippedDetections.map(d => {
+        const b = d.box;
+        const mirroredX = w - b.x - b.width;
+        return expandBox(mirroredX, b.y, b.width, b.height, pct, w, h);
+      });
+      boxes = mergeBoxes([...boxes, ...flippedBoxes]);
+    }
+
+    return boxes;
+  }
+
+  // ============================================================
+  //  REDACTION
+  // ============================================================
+  function applyRedaction(ctx, boxes, mode, intensity, srcCanvas) {
+    boxes.forEach(({ x, y, w, h }) => {
+      x = Math.max(0, Math.round(x));
+      y = Math.max(0, Math.round(y));
+      w = Math.round(Math.min(w, srcCanvas.width - x));
+      h = Math.round(Math.min(h, srcCanvas.height - y));
+      if (w <= 0 || h <= 0) return;
+
+      if (mode === 'blackout') {
+        ctx.fillStyle = 'rgb(12,12,12)';
+        ctx.fillRect(x, y, w, h);
+
+      } else if (mode === 'pixelate') {
+        const blocks = Math.max(2, 22 - intensity);
+        const tmp = document.createElement('canvas');
+        tmp.width = blocks; tmp.height = blocks;
+        const tctx = tmp.getContext('2d');
+        tctx.imageSmoothingEnabled = true;
+        tctx.drawImage(srcCanvas, x, y, w, h, 0, 0, blocks, blocks);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tmp, 0, 0, blocks, blocks, x, y, w, h);
+        ctx.imageSmoothingEnabled = true;
+
+      } else if (mode === 'blur') {
+        // stackblur-style approximation using repeated canvas filter blur
+        const passes = intensity > 12 ? 2 : 1;
+        const blurPx = Math.max(2, intensity * 1.6);
+        const tmp = document.createElement('canvas');
+        tmp.width = w; tmp.height = h;
+        const tctx = tmp.getContext('2d');
+        tctx.filter = `blur(${blurPx}px)`;
+        // draw slightly larger source region so blur doesn't sample transparent edges
+        tctx.drawImage(srcCanvas, x, y, w, h, 0, 0, w, h);
+        if (passes === 2) {
+          const tmp2 = document.createElement('canvas');
+          tmp2.width = w; tmp2.height = h;
+          const t2ctx = tmp2.getContext('2d');
+          t2ctx.filter = `blur(${blurPx}px)`;
+          t2ctx.drawImage(tmp, 0, 0, w, h);
+          ctx.drawImage(tmp2, x, y, w, h);
+        } else {
+          ctx.drawImage(tmp, x, y, w, h);
+        }
+      }
+    });
+  }
+
+  // ============================================================
+  //  RENDER PIPELINE
+  // ============================================================
+  function showSpinner(label) {
+    els.spinnerLabel.textContent = label || 'Detecting faces…';
+    els.spinnerOverlay.style.display = 'flex';
+  }
+  function hideSpinner() {
+    els.spinnerOverlay.style.display = 'none';
+  }
+
+  async function detectAndRender(entry) {
+    if (!state.modelsReady) {
+      setStatusBar('Models still loading — please wait…');
+      return;
+    }
+    showSpinner('Detecting faces…');
+    els.previewPlaceholder.style.display = 'none';
+    els.previewCanvas.style.display = 'block';
+
+    // slight delay so spinner paints before heavy work on large images
+    await new Promise(r => setTimeout(r, 10));
+
+    try {
+      const boxes = await detectFaces(entry.img);
+      state.currentBoxes = boxes;
+      entry.boxesCache = boxes;
+      els.facesFoundLabel.textContent = `Faces detected: ${boxes.length}`;
+      renderPreview(entry);
+      renderFullQueue();
+    } catch (err) {
+      console.error(err);
+      setStatusBar('Detection error: ' + err.message);
+    } finally {
+      hideSpinner();
+    }
+  }
+
+  function renderPreview(entry) {
+    const canvas = els.previewCanvas;
+    const w = entry.img.naturalWidth, h = entry.img.naturalHeight;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(entry.img, 0, 0, w, h);
+
+    const mode = els.modeSelect.value;
+    const intensity = parseInt(els.intensitySlider.value, 10);
+    applyRedaction(ctx, state.currentBoxes, mode, intensity, canvas);
+  }
+
+  function refreshPreviewOnly() {
+    const entry = state.queue.find(e => e.id === state.currentId);
+    if (!entry) return;
+    renderPreview(entry);
+  }
+
+  // ============================================================
+  //  SAVE / EXPORT
+  // ============================================================
+  function canvasToBlob(canvas, mime) {
+    return new Promise(resolve => canvas.toBlob(resolve, mime, 0.92));
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  function outputName(originalName, mime) {
+    const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
+    const stem = originalName.replace(/\.[^.]+$/, '');
+    return `${stem}_censored.${ext}`;
+  }
+
+  async function saveCurrent() {
+    const entry = state.queue.find(e => e.id === state.currentId);
+    if (!entry) return;
+    const mime = els.formatSelect.value;
+    const blob = await canvasToBlob(els.previewCanvas, mime);
+    downloadBlob(blob, outputName(entry.name, mime));
+    setStatusBar(`Saved: ${outputName(entry.name, mime)}`);
+  }
+
+  async function processAll() {
+    if (state.queue.length === 0) {
+      setStatusBar('Queue is empty — add images first.');
+      return;
+    }
+    els.processAllBtn.disabled = true;
+    els.progressWrap.style.display = 'block';
+    els.progressFill.style.width = '0%';
+
+    const mime = els.formatSelect.value;
+    const mode = els.modeSelect.value;
+    const intensity = parseInt(els.intensitySlider.value, 10);
+    const total = state.queue.length;
+    let success = 0, fail = 0;
+
+    // Use JSZip-free approach: trigger sequential downloads (most browsers allow
+    // a short burst of programmatic downloads from a user-initiated click).
+    for (let i = 0; i < total; i++) {
+      const entry = state.queue[i];
+      try {
+        const boxes = await detectFaces(entry.img);
+        const canvas = document.createElement('canvas');
+        canvas.width = entry.img.naturalWidth;
+        canvas.height = entry.img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(entry.img, 0, 0, canvas.width, canvas.height);
+        applyRedaction(ctx, boxes, mode, intensity, canvas);
+        const blob = await canvasToBlob(canvas, mime);
+        downloadBlob(blob, outputName(entry.name, mime));
+        entry.boxesCache = boxes;
+        success++;
+      } catch (err) {
+        console.error('Failed on', entry.name, err);
+        fail++;
+      }
+      els.progressFill.style.width = `${Math.round(((i + 1) / total) * 100)}%`;
+      els.progressLabel.textContent = `${i + 1} / ${total}`;
+      // small delay between downloads to avoid browser throttling multi-download bursts
+      await new Promise(r => setTimeout(r, 220));
+    }
+
+    renderFullQueue();
+    els.processAllBtn.disabled = false;
+    setStatusBar(`Batch complete — ${success} succeeded, ${fail} failed. Files saved to your browser's download folder.`);
+    setTimeout(() => { els.progressWrap.style.display = 'none'; }, 1500);
+  }
+
+  // ============================================================
+  //  EVENT WIRING
+  // ============================================================
+  els.browseBtn.addEventListener('click', () => els.fileInput.click());
+  els.dropZone.addEventListener('click', () => els.fileInput.click());
+  els.fileInput.addEventListener('change', (e) => {
+    addFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  els.dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    els.dropZone.classList.add('active');
+  });
+  els.dropZone.addEventListener('dragleave', () => {
+    els.dropZone.classList.remove('active');
+  });
+  els.dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    els.dropZone.classList.remove('active');
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+
+  els.clearBtn.addEventListener('click', clearQueue);
+
+  els.intensitySlider.addEventListener('input', () => {
+    els.intensityValue.textContent = els.intensitySlider.value;
+    refreshPreviewOnly();
+  });
+  els.modeSelect.addEventListener('change', refreshPreviewOnly);
+
+  els.sensitivitySlider.addEventListener('input', () => {
+    els.sensitivityValue.textContent = els.sensitivitySlider.value;
+  });
+  els.confSlider.addEventListener('input', () => {
+    els.confValue.textContent = (parseInt(els.confSlider.value, 10) / 10).toFixed(1);
+  });
+
+  els.sensitivitySlider.addEventListener('change', redetectCurrent);
+  els.confSlider.addEventListener('change', redetectCurrent);
+  els.paddingInput.addEventListener('change', redetectCurrent);
+  els.mirrorCheck.addEventListener('change', redetectCurrent);
+  els.detectBtn.addEventListener('click', redetectCurrent);
+
+  function redetectCurrent() {
+    const entry = state.queue.find(e => e.id === state.currentId);
+    if (entry) detectAndRender(entry);
+  }
+
+  els.saveCurrentBtn.addEventListener('click', saveCurrent);
+  els.processAllBtn.addEventListener('click', processAll);
+
+  // paste-from-clipboard support
+  window.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files = [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length) addFiles(files);
+  });
+
+})();
+</script>
+</body>
+</html>
