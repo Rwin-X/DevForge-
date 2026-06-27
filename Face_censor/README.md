@@ -50,9 +50,8 @@ No install. No build step. No backend.
 
 Face detection is not infallible — extreme angles, heavy occlusion, or poor lighting can cause misses. **Always check the live preview before trusting a batch run on sensitive material.** If a face is missed, raise sensitivity, lower the confidence threshold, or enable mirror-scan.
 
-## Stack
 
-`HTML` · `CSS` · `Vanilla JS` · [`face-api.js`](https://github.com/vladmandic/face-api) (TensorFlow.js)
+
 
 ---
 
