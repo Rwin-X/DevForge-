@@ -55,4 +55,4 @@ Face detection is not infallible — extreme angles, heavy occlusion, or poor li
 
 ---
 
-<sub>Part of <a href="https://github.com/Rwin/devforge">devforge</a> — a vibe-coding practice repo.</sub>
+<sub>Part of <a href="https://github.com/Rwin/devforge">devforge</a> — a vibe-coding practice repo.</sub> by Rwin
