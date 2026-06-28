@@ -11,3 +11,9 @@ what i learn :
                   or it will be weakness of me ?
     4 ---->
           -------------------------data lake / and identity lead------------------------
+
+    5 ---->
+          ------------------------- IDEAS -------------------------------
+          rwin.sh ----> resume
+          rwin.html ----> resume
+          rwin.py ----> resume(cli)
