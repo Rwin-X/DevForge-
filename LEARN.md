@@ -17,7 +17,7 @@ what i learn :
           rwin.sh ----> resume
           rwin.html ----> resume
           rwin.py ----> resume(cli)
-   6 ---->
+    6 ---->
 
          what is layer of vibe coding
          skills
