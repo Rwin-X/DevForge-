@@ -98,38 +98,6 @@ Everything runs locally.
 
 ---
 
-## Screenshots
-
-Add screenshots here:
-
-```md
-/assets/screenshot-1.png
-/assets/screenshot-2.png
-/assets/screenshot-3.png
-```
-
----
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/ascii-gen.git
-```
-
-Move into the project:
-
-```bash
-cd ascii-gen
-```
-
-Open:
-
-```bash
-index.html
-```
-
 That's it.
 
 No npm.
@@ -237,28 +205,6 @@ ASCII.GEN focuses on:
 - [ ] Pixel Art Generator
 - [ ] Multi-Layer Rendering
 
----
-
-## Contributing
-
-Contributions are welcome.
-
-If you'd like to improve ASCII.GEN:
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Open a Pull Request
-
----
-
-## License
-
-Distributed under the MIT License.
-
-See `LICENSE` for more information.
-
----
 
 <div align="center">
 
