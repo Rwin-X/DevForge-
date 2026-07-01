@@ -182,30 +182,6 @@ ASCII.GEN focuses on:
 ✔ Browser Compatible
 
 ---
-
-## Roadmap
-
-### Version 2.1
-
-- [ ] Colored ASCII Output
-- [ ] SVG Export
-- [ ] PNG Export
-
-### Version 3.0
-
-- [ ] GIF Support
-- [ ] Video To ASCII
-- [ ] Real-Time Webcam Mode
-- [ ] Terminal Themes
-
-### Future Ideas
-
-- [ ] AI Character Mapping
-- [ ] Animated ASCII
-- [ ] Pixel Art Generator
-- [ ] Multi-Layer Rendering
-
-
 <div align="center">
 
 ### ASCII.GEN
