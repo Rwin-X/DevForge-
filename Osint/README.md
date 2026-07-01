@@ -48,22 +48,6 @@ Designed for **lawful Open Source Intelligence (OSINT)** and **defensive securit
 
 ---
 
-## 📥 Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/osint-tool.git
-cd osint-tool
-```
-
-No installation of external packages is required.
-
-Requires:
-
-- Python 3.8+
-
----
 
 ## 🚀 Usage
 
