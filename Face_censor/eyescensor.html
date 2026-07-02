@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Client-side tool that detects faces in an image and redacts the eyes with blur, pixelation, or a black bar. Nothing is uploaded.">
+<title>EYECENSOR — Face Eye Redaction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #050806;
+    --panel: #0a120c;
+    --line: #143d1f;
+    --phosphor: #39ff6a;
+    --phosphor-dim: #1e8f45;
+    --white: #eafcef;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--void);
+    color: var(--white);
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'SF Mono', monospace;
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(57,255,106,0.07), transparent 60%),
+      var(--void);
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(57,255,106,0.025) 0px,
+      rgba(57,255,106,0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--phosphor);
+    outline-offset: 2px;
+  }
+
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 20px 64px;
+    position: relative;
+  }
+
+  /* ---------- header ---------- */
+
+  .app-header {
+    margin-bottom: 32px;
+  }
+
+  .app-header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--phosphor);
+    text-shadow: 0 0 14px rgba(57,255,106,0.45);
+  }
+
+  .cursor {
+    animation: blink 1s steps(1) infinite;
+  }
+
+  @keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+
+  .subtitle {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--white);
+    opacity: 0.75;
+    letter-spacing: 0.5px;
+  }
+
+  .privacy-note {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--phosphor-dim);
+    letter-spacing: 0.3px;
+  }
+
+  /* ---------- section dividers ---------- */
+
+  .rule {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 28px 0;
+  }
+
+  /* ---------- stage / dropzone / canvas ---------- */
+
+  .canvas-wrap {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+
+  .dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 280px;
+    padding: 32px;
+    cursor: pointer;
+    position: relative;
+    text-align: center;
+  }
+
+  .dropzone.drag-active {
+    background: rgba(57,255,106,0.05);
+  }
+
+  .reticle-corner {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--phosphor);
+    opacity: 0.55;
+    animation: breathe 3s ease-in-out infinite;
+  }
+
+  .reticle-corner.tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+  .reticle-corner.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+  .reticle-corner.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+  .reticle-corner.br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.75; }
+  }
+
+  .upload-icon {
+    color: var(--phosphor-dim);
+    margin-bottom: 4px;
+  }
+
+  .dz-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--white);
+  }
+
+  .dz-sub {
+    margin: 0;
+    font-size: 12px;
+    color: var(--phosphor-dim);
+    letter-spacing: 0.5px;
+  }
+
+  #displayCanvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* lock-on reticle, dynamically positioned via JS */
+  .lock-reticle {
+    position: absolute;
+    pointer-events: none;
+    transform: scale(1.25);
+    opacity: 0;
+    transition: transform 0.3s ease-out, opacity 0.25s ease-out;
+    z-index: 5;
+  }
+
+  .lock-reticle.active {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .lock-reticle.fade-out {
+    opacity: 0;
+  }
+
+  .lr-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--phosphor);
+    filter: drop-shadow(0 0 4px rgba(57,255,106,0.8));
+  }
+
+  .lr-tl { top: -6px; left: -6px; border-right: none; border-bottom: none; }
+  .lr-tr { top: -6px; right: -6px; border-left: none; border-bottom: none; }
+  .lr-bl { bottom: -6px; left: -6px; border-right: none; border-top: none; }
+  .lr-br { bottom: -6px; right: -6px; border-left: none; border-top: none; }
+
+  /* ---------- controls ---------- */
+
+  .controls {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .control-label {
+    flex: 0 0 84px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--phosphor-dim);
+  }
+
+  .control-value {
+    flex: 0 0 48px;
+    text-align: right;
+    font-size: 12px;
+    color: var(--white);
+    opacity: 0.8;
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .mode-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--white);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mode-btn:hover {
+    border-color: var(--phosphor-dim);
+  }
+
+  .mode-btn.active {
+    background: var(--phosphor);
+    border-color: var(--phosphor);
+    color: var(--void);
+  }
+
+  /* range sliders */
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    background: var(--line);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--phosphor);
+    border: none;
+    box-shadow: 0 0 8px rgba(57,255,106,0.7);
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--phosphor);
+    border: none;
+    box-shadow: 0 0 8px rgba(57,255,106,0.7);
+    cursor: pointer;
+  }
+
+  /* ---------- status ---------- */
+
+  .status-bar {
+    margin-top: 24px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--phosphor-dim);
+  }
+
+  .status-text {
+    margin: 0;
+    font-size: 12px;
+    color: var(--phosphor);
+    letter-spacing: 0.3px;
+  }
+
+  /* ---------- actions ---------- */
+
+  .actions {
+    margin-top: 18px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    flex: 1;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 14px 16px;
+    cursor: pointer;
+    border: 1px solid var(--phosphor);
+    background: transparent;
+    color: var(--phosphor);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-primary:hover {
+    background: var(--phosphor);
+    color: var(--void);
+  }
+
+  .btn-ghost {
+    border-color: var(--line);
+    color: var(--white);
+    opacity: 0.7;
+    flex: 0 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--phosphor-dim);
+    opacity: 1;
+  }
+
+  /* ---------- footer ---------- */
+
+  .app-footer {
+    margin-top: 48px;
+    text-align: center;
+  }
+
+  .app-footer p {
+    margin: 0;
+    font-size: 11px;
+    color: var(--line);
+    letter-spacing: 0.5px;
+  }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 480px) {
+    .app { padding: 32px 16px 48px; }
+    .app-header h1 { font-size: 22px; letter-spacing: 2px; }
+    .control-row { flex-wrap: wrap; }
+    .control-label { flex-basis: 100%; }
+    .mode-btn { font-size: 10px; padding: 10px 4px; }
+    .actions { flex-direction: column; }
+    .btn-ghost { padding-left: 16px; padding-right: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cursor { animation: none; opacity: 1; }
+    .reticle-corner { animation: none; opacity: 0.55; }
+    .lock-reticle { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<main class="app">
+
+  <header class="app-header">
+    <h1>EYECENSOR<span class="cursor">_</span></h1>
+    <p class="subtitle">&gt; eye-region redaction utility</p>
+    <p class="privacy-note">▸ processed locally in your browser — the image is never uploaded</p>
+  </header>
+
+  <hr class="rule">
+
+  <section id="canvasWrap" class="canvas-wrap">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload an image to redact eyes">
+      <span class="reticle-corner tl"></span>
+      <span class="reticle-corner tr"></span>
+      <span class="reticle-corner bl"></span>
+      <span class="reticle-corner br"></span>
+      <svg class="upload-icon" width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M4 24C4 24 12 10 24 10C36 10 44 24 44 24C44 24 36 38 24 38C12 38 4 24 4 24Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="24" cy="24" r="6" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      <p class="dz-title">DROP IMAGE HERE</p>
+      <p class="dz-sub">or click to browse · JPG · PNG · WEBP</p>
+    </div>
+    <canvas id="displayCanvas" hidden></canvas>
+  </section>
+  <input type="file" id="fileInput" accept="image/*" hidden>
+
+  <section id="controls" class="controls" hidden>
+    <div class="control-row">
+      <span class="control-label">MODE</span>
+      <div class="mode-toggle" role="group" aria-label="Censor mode">
+        <button type="button" class="mode-btn active" data-mode="blur" aria-pressed="true">BLUR</button>
+        <button type="button" class="mode-btn" data-mode="pixelate" aria-pressed="false">PIXELATE</button>
+        <button type="button" class="mode-btn" data-mode="black" aria-pressed="false">BLACK BAR</button>
+      </div>
+    </div>
+    <div class="control-row" id="strengthRow">
+      <label class="control-label" for="strengthSlider">STRENGTH</label>
+      <input type="range" id="strengthSlider" min="6" max="40" value="20">
+      <span class="control-value" id="strengthValue">20px</span>
+    </div>
+    <div class="control-row">
+      <label class="control-label" for="coverageSlider">COVERAGE</label>
+      <input type="range" id="coverageSlider" min="50" max="250" value="130">
+      <span class="control-value" id="coverageValue">130%</span>
+    </div>
+  </section>
+
+  <section class="status-bar">
+    <p id="statusText" class="status-text" aria-live="polite">&gt; initializing detection engine...</p>
+  </section>
+
+  <section id="actions" class="actions" hidden>
+    <button type="button" id="downloadBtn" class="btn btn-primary">DOWNLOAD PNG</button>
+    <button type="button" id="resetBtn" class="btn btn-ghost">RESET</button>
+  </section>
+
+  <footer class="app-footer">
+    <p>EYECENSOR — client-side face &amp; eye redaction</p>
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  console.log(
+    '%c EYECENSOR ',
+    'background:#39ff6a;color:#050806;font-weight:800;letter-spacing:2px;padding:3px 6px;'
+  );
+
+  // ---------- DOM references ----------
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('fileInput');
+  var canvasWrap = document.getElementById('canvasWrap');
+  var displayCanvas = document.getElementById('displayCanvas');
+  var controls = document.getElementById('controls');
+  var strengthRow = document.getElementById('strengthRow');
+  var strengthSlider = document.getElementById('strengthSlider');
+  var strengthValue = document.getElementById('strengthValue');
+  var coverageSlider = document.getElementById('coverageSlider');
+  var coverageValue = document.getElementById('coverageValue');
+  var statusText = document.getElementById('statusText');
+  var actions = document.getElementById('actions');
+  var downloadBtn = document.getElementById('downloadBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var modeButtons = Array.prototype.slice.call(document.querySelectorAll('.mode-btn'));
+
+  // ---------- state ----------
+  var sourceImage = null;
+  var sourceCanvas = document.createElement('canvas');
+  var detections = [];
+  var currentMode = 'blur';
+  var intensity = parseInt(strengthSlider.value, 10);
+  var coverage = parseInt(coverageSlider.value, 10) / 100;
+  var modelsLoaded = false;
+  var modelsFailed = false;
+  var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
+
+  // ---------- model loading ----------
+  function initModels() {
+    return Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+    ]).then(function () {
+      modelsLoaded = true;
+      if (!sourceImage) updateStatus('> ready — drop an image to begin');
+    }).catch(function (err) {
+      modelsFailed = true;
+      console.error('Model load failed:', err);
+      updateStatus('> detection engine failed to load — check your connection and reload');
+    });
+  }
+
+  var modelsReadyPromise = initModels();
+
+  // ---------- helpers ----------
+  function updateStatus(text) {
+    statusText.textContent = text;
+  }
+
+  function faceCountText(n) {
+    return '> ' + n + ' ' + (n === 1 ? 'face' : 'faces') + ' detected — eyes secured';
+  }
+
+  function clampRect(rect, maxW, maxH) {
+    var x = Math.max(0, rect.x);
+    var y = Math.max(0, rect.y);
+    var w = Math.min(rect.x + rect.w, maxW) - x;
+    var h = Math.min(rect.y + rect.h, maxH) - y;
+    return { x: x, y: y, w: Math.max(0, w), h: Math.max(0, h) };
+  }
+
+  function computeEyeRect(det, coverageFactor) {
+    var pts = det.leftEye.concat(det.rightEye);
+    var xs = pts.map(function (p) { return p.x; });
+    var ys = pts.map(function (p) { return p.y; });
+    var minX = Math.min.apply(null, xs);
+    var maxX = Math.max.apply(null, xs);
+    var minY = Math.min.apply(null, ys);
+    var maxY = Math.max.apply(null, ys);
+    var padX = det.faceBox.width * 0.10 * coverageFactor;
+    var padY = det.faceBox.height * 0.09 * coverageFactor;
+    return {
+      x: minX - padX,
+      y: minY - padY,
+      w: (maxX - minX) + padX * 2,
+      h: (maxY - minY) + padY * 2
+    };
+  }
+
+  function toScreenRect(pixelRect) {
+    var canvasRect = displayCanvas.getBoundingClientRect();
+    var wrapRect = canvasWrap.getBoundingClientRect();
+    var scaleX = canvasRect.width / displayCanvas.width;
+    var scaleY = canvasRect.height / displayCanvas.height;
+    return {
+      x: (canvasRect.left - wrapRect.left) + pixelRect.x * scaleX,
+      y: (canvasRect.top - wrapRect.top) + pixelRect.y * scaleY,
+      w: pixelRect.w * scaleX,
+      h: pixelRect.h * scaleY
+    };
+  }
+
+  // ---------- censor effects (operate on cropped regions for performance) ----------
+  function pixelateRegion(ctx, rect) {
+    var blockSize = intensity;
+    var smallW = Math.max(1, Math.round(rect.w / blockSize));
+    var smallH = Math.max(1, Math.round(rect.h / blockSize));
+    var tmp = document.createElement('canvas');
+    tmp.width = smallW;
+    tmp.height = smallH;
+    var tctx = tmp.getContext('2d');
+    tctx.drawImage(sourceCanvas, rect.x, rect.y, rect.w, rect.h, 0, 0, smallW, smallH);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tmp, 0, 0, smallW, smallH, rect.x, rect.y, rect.w, rect.h);
+    ctx.imageSmoothingEnabled = true;
+  }
+
+  function blurRegion(ctx, rect) {
+    var blurPx = intensity;
+    var margin = Math.ceil(blurPx * 2);
+    var sx = Math.max(0, rect.x - margin);
+    var sy = Math.max(0, rect.y - margin);
+    var ex = Math.min(sourceCanvas.width, rect.x + rect.w + margin);
+    var ey = Math.min(sourceCanvas.height, rect.y + rect.h + margin);
+    var sw = ex - sx;
+    var sh = ey - sy;
+    if (sw <= 0 || sh <= 0) return;
+    var tmp = document.createElement('canvas');
+    tmp.width = sw;
+    tmp.height = sh;
+    var tctx = tmp.getContext('2d');
+    tctx.filter = 'blur(' + blurPx + 'px)';
+    tctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    var dx = rect.x - sx;
+    var dy = rect.y - sy;
+    ctx.drawImage(tmp, dx, dy, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h);
+  }
+
+  function applyCensor(ctx, rect) {
+    if (currentMode === 'black') {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+    } else if (currentMode === 'pixelate') {
+      pixelateRegion(ctx, rect);
+    } else {
+      blurRegion(ctx, rect);
+    }
+  }
+
+  function render() {
+    var ctx = displayCanvas.getContext('2d');
+    ctx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+    ctx.drawImage(sourceCanvas, 0, 0);
+    detections.forEach(function (det) {
+      var rect = clampRect(computeEyeRect(det, coverage), displayCanvas.width, displayCanvas.height);
+      if (rect.w <= 0 || rect.h <= 0) return;
+      applyCensor(ctx, rect);
+    });
+  }
+
+  // ---------- lock-on reticle feedback ----------
+  function spawnLockOnReticle(rectScreen) {
+    if (prefersReducedMotion || rectScreen.w <= 0 || rectScreen.h <= 0) return;
+    var el = document.createElement('div');
+    el.className = 'lock-reticle';
+    el.style.left = rectScreen.x + 'px';
+    el.style.top = rectScreen.y + 'px';
+    el.style.width = rectScreen.w + 'px';
+    el.style.height = rectScreen.h + 'px';
+    el.innerHTML =
+      '<span class="lr-corner lr-tl"></span>' +
+      '<span class="lr-corner lr-tr"></span>' +
+      '<span class="lr-corner lr-bl"></span>' +
+      '<span class="lr-corner lr-br"></span>';
+    canvasWrap.appendChild(el);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { el.classList.add('active'); });
+    });
+    setTimeout(function () {
+      el.classList.add('fade-out');
+      setTimeout(function () { el.remove(); }, 400);
+    }, 700);
+  }
+
+  function clearReticles() {
+    var existing = canvasWrap.querySelectorAll('.lock-reticle');
+    existing.forEach(function (el) { el.remove(); });
+  }
+
+  // ---------- detection pipeline ----------
+  function setupCanvases(img) {
+    var w = img.naturalWidth;
+    var h = img.naturalHeight;
+    sourceCanvas.width = w;
+    sourceCanvas.height = h;
+    sourceCanvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    displayCanvas.width = w;
+    displayCanvas.height = h;
+    displayCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0);
+  }
+
+  function startDetection() {
+    clearReticles();
+    updateStatus(modelsLoaded ? '> scanning for faces...' : '> loading detection engine...');
+    modelsReadyPromise.then(function () {
+      if (modelsFailed) return;
+      updateStatus('> scanning for faces...');
+      var options = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.4 });
+      return faceapi.detectAllFaces(sourceImage, options).withFaceLandmarks().then(function (results) {
+        var resized = faceapi.resizeResults(results, {
+          width: sourceImage.naturalWidth,
+          height: sourceImage.naturalHeight
+        });
+        detections = resized.map(function (r) {
+          return {
+            faceBox: r.detection.box,
+            leftEye: r.landmarks.getLeftEye(),
+            rightEye: r.landmarks.getRightEye()
+          };
+        });
+        if (detections.length === 0) {
+          updateStatus('> no face detected — try a clearer or closer photo');
+          render();
+          return;
+        }
+        updateStatus(faceCountText(detections.length));
+        render();
+        detections.forEach(function (det) {
+          var rect = computeEyeRect(det, coverage);
+          spawnLockOnReticle(toScreenRect(rect));
+        });
+      });
+    }).catch(function (err) {
+      console.error('Detection failed:', err);
+      updateStatus('> detection failed — try a different image');
+      detections = [];
+      render();
+    });
+  }
+
+  function handleFile(file) {
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+      updateStatus('> unsupported file — please choose an image');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        sourceImage = img;
+        setupCanvases(img);
+        dropzone.hidden = true;
+        displayCanvas.hidden = false;
+        controls.hidden = false;
+        actions.hidden = false;
+        startDetection();
+      };
+      img.onerror = function () {
+        updateStatus('> image failed to load — try a different file');
+      };
+      img.src = e.target.result;
+    };
+    reader.onerror = function () {
+      updateStatus('> could not read file — try again');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---------- events: upload ----------
+  dropzone.addEventListener('click', function () { fileInput.click(); });
+
+  dropzone.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      dropzone.classList.add('drag-active');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      dropzone.classList.remove('drag-active');
+    });
+  });
+
+  dropzone.addEventListener('drop', function (e) {
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files[0];
+    if (file) handleFile(file);
+  });
+
+  // ---------- events: controls ----------
+  modeButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      modeButtons.forEach(function (b) {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
+      currentMode = btn.dataset.mode;
+      strengthRow.hidden = (currentMode === 'black');
+      if (sourceImage) render();
+    });
+  });
+
+  strengthSlider.addEventListener('input', function () {
+    intensity = parseInt(strengthSlider.value, 10);
+    strengthValue.textContent = intensity + 'px';
+    if (sourceImage) render();
+  });
+
+  coverageSlider.addEventListener('input', function () {
+    coverage = parseInt(coverageSlider.value, 10) / 100;
+    coverageValue.textContent = coverageSlider.value + '%';
+    if (sourceImage) render();
+  });
+
+  // ---------- events: actions ----------
+  downloadBtn.addEventListener('click', function () {
+    var link = document.createElement('a');
+    link.download = 'eyecensor-output.png';
+    link.href = displayCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+  resetBtn.addEventListener('click', function () {
+    sourceImage = null;
+    detections = [];
+    fileInput.value = '';
+    clearReticles();
+    dropzone.hidden = false;
+    displayCanvas.hidden = true;
+    controls.hidden = true;
+    actions.hidden = true;
+    updateStatus(modelsFailed
+      ? '> detection engine failed to load — check your connection and reload'
+      : (modelsLoaded ? '> ready — drop an image to begin' : '> initializing detection engine...'));
+  });
+
+})();
+</script>
+</body>
+</html>
