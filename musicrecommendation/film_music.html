@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Score Finder</title>
+<style>
+  :root {
+    --ink: #0b1d3a;
+    --ink-soft: #3c5a86;
+    --line: #d7e3f2;
+    --line-soft: #eaf1fa;
+    --paper: #ffffff;
+    --wash: #f4f8fd;
+    --accent: #1b5fd4;
+    --accent-deep: #0d3f9e;
+    --accent-pale: #e4edfb;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Mono", "Söhne Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .frame {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 28px 120px;
+    min-height: 100vh;
+  }
+
+  /* ---- Header ---- */
+
+  .mark {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 56px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 20px;
+  }
+
+  .mark-title {
+    font-family: "Georgia", "Iowan Old Style", serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+
+  .mark-title em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .mark-tag {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  /* ---- Search ---- */
+
+  .search-block {
+    margin-bottom: 8px;
+  }
+
+  .search-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .search-row {
+    display: flex;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+  }
+
+  .search-row input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 16px 16px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--ink);
+  }
+
+  .search-row input::placeholder {
+    color: #a9b9cf;
+  }
+
+  .search-row button {
+    border: none;
+    border-left: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0 22px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .search-row button:hover {
+    background: var(--accent-deep);
+  }
+
+  .search-row button:active {
+    background: var(--accent);
+  }
+
+  .hint {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    min-height: 16px;
+  }
+
+  /* ---- Result state ---- */
+
+  .empty-state {
+    margin-top: 96px;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+
+  .empty-glyph {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: var(--line);
+    margin-bottom: 18px;
+  }
+
+  .empty-state p {
+    font-size: 13px;
+    line-height: 1.7;
+    max-width: 380px;
+    margin: 0 auto;
+  }
+
+  .result {
+    margin-top: 48px;
+    display: none;
+  }
+
+  .result.is-visible {
+    display: block;
+  }
+
+  .film-card {
+    border: 1px solid var(--ink);
+    padding: 28px;
+    margin-bottom: 40px;
+    position: relative;
+  }
+
+  .film-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .film-name {
+    font-family: "Georgia", "Iowan Old Style", serif;
+    font-size: 28px;
+    line-height: 1.15;
+    margin: 0 0 12px;
+    color: var(--ink);
+  }
+
+  .film-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .chip {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+    background: var(--accent-pale);
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .section-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .track-list {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--line);
+  }
+
+  .track {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 4px;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.12s ease;
+  }
+
+  .track:hover {
+    background: var(--wash);
+  }
+
+  .track:hover .track-go {
+    color: var(--accent);
+    transform: translateX(2px);
+  }
+
+  .track-index {
+    font-size: 11px;
+    color: var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .track-body {
+    min-width: 0;
+  }
+
+  .track-title {
+    font-size: 14px;
+    color: var(--ink);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .track-sub {
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .track-go {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--line-soft);
+    color: #b9c9e0;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+  }
+
+  .provider-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 28px;
+  }
+
+  .provider-btn {
+    flex: 1;
+    text-align: center;
+    border: 1px solid var(--line);
+    padding: 12px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .provider-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent-deep);
+  }
+
+  /* ---- Footer note ---- */
+
+  .foot-note {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+
+  .foot-note strong {
+    color: var(--ink);
+  }
+
+  @media (max-width: 520px) {
+    .frame { padding: 40px 18px 90px; }
+    .film-name { font-size: 22px; }
+    .provider-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <header class="mark">
+    <div class="mark-title">score<em>finder</em></div>
+    <div class="mark-tag">film &rarr; sound</div>
+  </header>
+
+  <div class="search-block">
+    <label class="search-label" for="filmInput">Name a film</label>
+    <div class="search-row">
+      <input type="text" id="filmInput" placeholder="e.g. Drive, Blade Runner 2049, Whiplash" autocomplete="off">
+      <button id="searchBtn" type="button">Find sound</button>
+    </div>
+    <div class="hint" id="hintText">Press enter or click to pull tracks in a matching register.</div>
+  </div>
+
+  <div class="empty-state" id="emptyState">
+    <div class="empty-glyph">&mdash; &mdash; &mdash;</div>
+    <p>Type a title above. The engine reads its genre, mood, and era, then surfaces a short list of tracks that sit in the same sonic world — plus direct search links to hear them.</p>
+  </div>
+
+  <div class="result" id="resultBlock">
+    <div class="film-card">
+      <div class="film-eyebrow">Matched profile</div>
+      <h1 class="film-name" id="filmTitle">&mdash;</h1>
+      <div class="film-meta" id="filmChips"></div>
+    </div>
+
+    <div class="section-label">Similar in sound</div>
+    <div class="track-list" id="trackList"></div>
+
+    <div class="section-label" style="margin-top:36px;">Listen elsewhere</div>
+    <div class="provider-row" id="providerRow"></div>
+  </div>
+
+  <div class="foot-note">
+    <strong>How this works —</strong> ScoreFinder keeps a small local map of films to genre, mood, and era. From that profile it builds direct search links to YouTube and Spotify, so you always land on real, current results rather than a fixed guess.
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // -----------------------------------------------------------------
+  // Local film -> sonic profile map.
+  // Each entry has: genre tags, mood tags, era, and a short curated
+  // list of "similar in sound" reference tracks (real songs/scores
+  // known to sit near that film's musical world).
+  // -----------------------------------------------------------------
+  var FILM_DB = {
+    "drive": {
+      display: "Drive",
+      genre: ["synthwave", "neo-noir"],
+      mood: ["moody", "nocturnal"],
+      era: "2010s",
+      tracks: [
+        { title: "Nightcall", artist: "Kavinsky" },
+        { title: "A Real Hero", artist: "College & Electric Youth" },
+        { title: "Tick of the Clock", artist: "Chromatics" },
+        { title: "Oh My Love", artist: "Riz Ortolani" }
+      ]
+    },
+    "blade runner 2049": {
+      display: "Blade Runner 2049",
+      genre: ["ambient score", "sci-fi"],
+      mood: ["atmospheric", "melancholic"],
+      era: "2010s",
+      tracks: [
+        { title: "Sea Wall", artist: "Hans Zimmer & Benjamin Wallfisch" },
+        { title: "Vangelis Theme", artist: "Vangelis" },
+        { title: "On the Nature of Daylight", artist: "Max Richter" },
+        { title: "Flesh and Bone", artist: "Hans Zimmer & Benjamin Wallfisch" }
+      ]
+    },
+    "whiplash": {
+      display: "Whiplash",
+      genre: ["jazz", "drama score"],
+      mood: ["intense", "driving"],
+      era: "2010s",
+      tracks: [
+        { title: "Caravan", artist: "Justin Hurwitz" },
+        { title: "Whiplash", artist: "Hank Levy" },
+        { title: "Fletcher's Song", artist: "Justin Hurwitz" },
+        { title: "Take Five", artist: "The Dave Brubeck Quartet" }
+      ]
+    },
+    "interstellar": {
+      display: "Interstellar",
+      genre: ["orchestral score", "sci-fi"],
+      mood: ["epic", "emotional"],
+      era: "2010s",
+      tracks: [
+        { title: "Cornfield Chase", artist: "Hans Zimmer" },
+        { title: "Day One", artist: "Hans Zimmer" },
+        { title: "Time", artist: "Hans Zimmer" },
+        { title: "First Step", artist: "Hans Zimmer" }
+      ]
+    },
+    "inception": {
+      display: "Inception",
+      genre: ["orchestral score", "sci-fi"],
+      mood: ["tense", "epic"],
+      era: "2010s",
+      tracks: [
+        { title: "Time", artist: "Hans Zimmer" },
+        { title: "Dream Is Collapsing", artist: "Hans Zimmer" },
+        { title: "Mombasa", artist: "Hans Zimmer" },
+        { title: "Half Remembered Dream", artist: "M83" }
+      ]
+    },
+    "the social network": {
+      display: "The Social Network",
+      genre: ["electronic score", "drama"],
+      mood: ["cold", "driving"],
+      era: "2010s",
+      tracks: [
+        { title: "Hand Covers Bruise", artist: "Trent Reznor & Atticus Ross" },
+        { title: "In Motion", artist: "Trent Reznor & Atticus Ross" },
+        { title: "A Familiar Taste", artist: "Trent Reznor & Atticus Ross" },
+        { title: "Cliffs", artist: "Trent Reznor & Atticus Ross" }
+      ]
+    },
+    "joker": {
+      display: "Joker",
+      genre: ["orchestral score", "psychological drama"],
+      mood: ["unsettling", "melancholic"],
+      era: "2010s",
+      tracks: [
+        { title: "Bathroom Dance", artist: "Hildur Guðnadóttir" },
+        { title: "Call Me Joker", artist: "Hildur Guðnadóttir" },
+        { title: "Defeated Clown", artist: "Hildur Guðnadóttir" },
+        { title: "Rock and Roll Part 2", artist: "Gary Glitter" }
+      ]
+    },
+    "la la land": {
+      display: "La La Land",
+      genre: ["jazz", "musical"],
+      mood: ["romantic", "wistful"],
+      era: "2010s",
+      tracks: [
+        { title: "City of Stars", artist: "Ryan Gosling & Emma Stone" },
+        { title: "Another Day of Sun", artist: "Cast of La La Land" },
+        { title: "Mia & Sebastian's Theme", artist: "Justin Hurwitz" },
+        { title: "Planetarium", artist: "Justin Hurwitz" }
+      ]
+    },
+    "the dark knight": {
+      display: "The Dark Knight",
+      genre: ["orchestral score", "action"],
+      mood: ["dark", "tense"],
+      era: "2000s",
+      tracks: [
+        { title: "Why So Serious?", artist: "Hans Zimmer & James Newton Howard" },
+        { title: "A Dark Knight", artist: "Hans Zimmer & James Newton Howard" },
+        { title: "Aggressive Expansion", artist: "Hans Zimmer & James Newton Howard" },
+        { title: "Molossus", artist: "Hans Zimmer & James Newton Howard" }
+      ]
+    },
+    "pulp fiction": {
+      display: "Pulp Fiction",
+      genre: ["surf rock", "soul", "crime"],
+      mood: ["cool", "eclectic"],
+      era: "1990s",
+      tracks: [
+        { title: "Misirlou", artist: "Dick Dale" },
+        { title: "Son of a Preacher Man", artist: "Dusty Springfield" },
+        { title: "Jungle Boogie", artist: "Kool & the Gang" },
+        { title: "You Never Can Tell", artist: "Chuck Berry" }
+      ]
+    },
+    "trainspotting": {
+      display: "Trainspotting",
+      genre: ["britpop", "electronic", "punk"],
+      mood: ["frantic", "gritty"],
+      era: "1990s",
+      tracks: [
+        { title: "Born Slippy .NUXX", artist: "Underworld" },
+        { title: "Lust for Life", artist: "Iggy Pop" },
+        { title: "Perfect Day", artist: "Lou Reed" },
+        { title: "Temptation", artist: "New Order" }
+      ]
+    },
+    "eternal sunshine of the spotless mind": {
+      display: "Eternal Sunshine of the Spotless Mind",
+      genre: ["ambient", "indie score"],
+      mood: ["dreamy", "bittersweet"],
+      era: "2000s",
+      tracks: [
+        { title: "Theme", artist: "Jon Brion" },
+        { title: "Row", artist: "Jon Brion" },
+        { title: "Everybody's Got to Learn Sometime", artist: "Beck" },
+        { title: "Strawberry", artist: "Jon Brion" }
+      ]
+    },
+    "her": {
+      display: "Her",
+      genre: ["ambient", "indie score"],
+      mood: ["tender", "warm"],
+      era: "2010s",
+      tracks: [
+        { title: "The Moon Song", artist: "Karen O & Ezra Koenig" },
+        { title: "Photograph", artist: "Arcade Fire" },
+        { title: "Milk & Honey", artist: "Owen Pallett & Arcade Fire" },
+        { title: "Sleepwalker", artist: "Arcade Fire" }
+      ]
+    },
+    "mad max fury road": {
+      display: "Mad Max: Fury Road",
+      genre: ["industrial score", "action"],
+      mood: ["relentless", "chaotic"],
+      era: "2010s",
+      tracks: [
+        { title: "Brothers in Arms", artist: "Junkie XL" },
+        { title: "Establishing the World", artist: "Junkie XL" },
+        { title: "Storming the Fury Road", artist: "Junkie XL" },
+        { title: "The Chase", artist: "Junkie XL" }
+      ]
+    },
+    "call me by your name": {
+      display: "Call Me by Your Name",
+      genre: ["chamber pop", "classical"],
+      mood: ["tender", "wistful"],
+      era: "2010s",
+      tracks: [
+        { title: "Mystery of Love", artist: "Sufjan Stevens" },
+        { title: "Visions of Gideon", artist: "Sufjan Stevens" },
+        { title: "Futile Devices", artist: "Sufjan Stevens" },
+        { title: "Une barque sur l'ocean", artist: "Ryuichi Sakamoto" }
+      ]
+    },
+    "the grand budapest hotel": {
+      display: "The Grand Budapest Hotel",
+      genre: ["orchestral", "folk"],
+      mood: ["whimsical", "quirky"],
+      era: "2010s",
+      tracks: [
+        { title: "Overture: M. Gustave H.", artist: "Alexandre Desplat" },
+        { title: "Daylight Express to Lutz", artist: "Alexandre Desplat" },
+        { title: "The New Lobby Boy", artist: "Alexandre Desplat" },
+        { title: "Canto at Gabelmeister's Peak", artist: "Alexandre Desplat" }
+      ]
+    },
+    "no country for old men": {
+      display: "No Country for Old Men",
+      genre: ["minimalist score", "americana"],
+      mood: ["tense", "sparse"],
+      era: "2000s",
+      tracks: [
+        { title: "Blood Trail", artist: "Carter Burwell" },
+        { title: "Sighting the Killer", artist: "Carter Burwell" },
+        { title: "Coin Toss", artist: "Carter Burwell" },
+        { title: "The Man Who Wasn't There", artist: "Carter Burwell" }
+      ]
+    },
+    "dune": {
+      display: "Dune",
+      genre: ["orchestral score", "sci-fi"],
+      mood: ["epic", "mystical"],
+      era: "2020s",
+      tracks: [
+        { title: "Paul's Dream", artist: "Hans Zimmer" },
+        { title: "Ripples in the Sand", artist: "Hans Zimmer" },
+        { title: "Sanctuary", artist: "Hans Zimmer" },
+        { title: "Herald of the Change", artist: "Hans Zimmer" }
+      ]
+    },
+    "everything everywhere all at once": {
+      display: "Everything Everywhere All at Once",
+      genre: ["experimental", "electronic"],
+      mood: ["frenetic", "eclectic"],
+      era: "2020s",
+      tracks: [
+        { title: "Multiverse", artist: "Son Lux" },
+        { title: "Now We're Cooking", artist: "Son Lux" },
+        { title: "Papa Bagel", artist: "Son Lux" },
+        { title: "This Is a Life", artist: "David Byrne & Mitski" }
+      ]
+    },
+    "oppenheimer": {
+      display: "Oppenheimer",
+      genre: ["orchestral score", "strings"],
+      mood: ["tense", "urgent"],
+      era: "2020s",
+      tracks: [
+        { title: "Can You Hear the Music", artist: "Ludwig Göransson" },
+        { title: "Destroyer of Worlds", artist: "Ludwig Göransson" },
+        { title: "Fission", artist: "Ludwig Göransson" },
+        { title: "Trinity", artist: "Ludwig Göransson" }
+      ]
+    }
+  };
+
+  // Genre -> fallback reference tracks, used when a title isn't
+  // in the direct map but we can still infer a rough sonic bucket.
+  var GENRE_FALLBACK = {
+    action: [
+      { title: "Aggressive Expansion", artist: "Hans Zimmer" },
+      { title: "Brothers in Arms", artist: "Junkie XL" },
+      { title: "Mombasa", artist: "Hans Zimmer" }
+    ],
+    drama: [
+      { title: "Time", artist: "Hans Zimmer" },
+      { title: "On the Nature of Daylight", artist: "Max Richter" },
+      { title: "Hand Covers Bruise", artist: "Trent Reznor & Atticus Ross" }
+    ],
+    thriller: [
+      { title: "Why So Serious?", artist: "Hans Zimmer & James Newton Howard" },
+      { title: "Blood Trail", artist: "Carter Burwell" },
+      { title: "Bathroom Dance", artist: "Hildur Guðnadóttir" }
+    ],
+    scifi: [
+      { title: "Cornfield Chase", artist: "Hans Zimmer" },
+      { title: "Vangelis Theme", artist: "Vangelis" },
+      { title: "Sea Wall", artist: "Hans Zimmer & Benjamin Wallfisch" }
+    ],
+    romance: [
+      { title: "Mystery of Love", artist: "Sufjan Stevens" },
+      { title: "City of Stars", artist: "Ryan Gosling & Emma Stone" },
+      { title: "The Moon Song", artist: "Karen O & Ezra Koenig" }
+    ],
+    default: [
+      { title: "Time", artist: "Hans Zimmer" },
+      { title: "On the Nature of Daylight", artist: "Max Richter" },
+      { title: "Nightcall", artist: "Kavinsky" }
+    ]
+  };
+
+  var input = document.getElementById("filmInput");
+  var button = document.getElementById("searchBtn");
+  var hint = document.getElementById("hintText");
+  var emptyState = document.getElementById("emptyState");
+  var resultBlock = document.getElementById("resultBlock");
+  var filmTitle = document.getElementById("filmTitle");
+  var filmChips = document.getElementById("filmChips");
+  var trackList = document.getElementById("trackList");
+  var providerRow = document.getElementById("providerRow");
+
+  function normalize(str) {
+    return str.trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function titleCase(str) {
+    return str.replace(/\w\S*/g, function (t) {
+      return t.charAt(0).toUpperCase() + t.slice(1);
+    });
+  }
+
+  function buildSearchUrl(base, query) {
+    return base + encodeURIComponent(query);
+  }
+
+  function clear(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function renderChips(genres, mood, era) {
+    clear(filmChips);
+    var all = [].concat(genres, mood, [era]);
+    all.forEach(function (label) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = label;
+      filmChips.appendChild(chip);
+    });
+  }
+
+  function renderTracks(tracks) {
+    clear(trackList);
+    tracks.forEach(function (track, i) {
+      var link = document.createElement("a");
+      link.className = "track";
+      link.href = buildSearchUrl(
+        "https://www.youtube.com/results?search_query=",
+        track.artist + " " + track.title
+      );
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+
+      var index = document.createElement("span");
+      index.className = "track-index";
+      index.textContent = String(i + 1).padStart(2, "0");
+
+      var body = document.createElement("span");
+      body.className = "track-body";
+
+      var t = document.createElement("span");
+      t.className = "track-title";
+      t.textContent = track.title;
+
+      var sub = document.createElement("span");
+      sub.className = "track-sub";
+      sub.textContent = track.artist;
+
+      body.appendChild(t);
+      body.appendChild(sub);
+
+      var go = document.createElement("span");
+      go.className = "track-go";
+      go.textContent = "Play &rarr;".replace("&rarr;", "\u2192");
+
+      link.appendChild(index);
+      link.appendChild(body);
+      link.appendChild(go);
+
+      trackList.appendChild(link);
+    });
+  }
+
+  function renderProviders(displayName, tracks) {
+    clear(providerRow);
+    var trackQuery = tracks.map(function (t) { return t.artist + " " + t.title; }).join(" ");
+
+    var providers = [
+      {
+        label: "Search on Spotify",
+        url: buildSearchUrl("https://open.spotify.com/search/", displayName + " soundtrack")
+      },
+      {
+        label: "Search on YouTube",
+        url: buildSearchUrl("https://www.youtube.com/results?search_query=", displayName + " soundtrack playlist")
+      },
+      {
+        label: "Full OST search",
+        url: buildSearchUrl("https://www.google.com/search?q=", displayName + " original soundtrack full album")
+      }
+    ];
+
+    providers.forEach(function (p) {
+      var a = document.createElement("a");
+      a.className = "provider-btn";
+      a.href = p.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = p.label;
+      providerRow.appendChild(a);
+    });
+  }
+
+  function inferFallbackGenre(query) {
+    var q = query.toLowerCase();
+    if (/(war|fight|action|heist|spy|agent)/.test(q)) return "action";
+    if (/(space|robot|alien|future|cyber|ai\b)/.test(q)) return "scifi";
+    if (/(love|romance|wedding|heart)/.test(q)) return "romance";
+    if (/(kill|murder|crime|noir|thriller|horror)/.test(q)) return "thriller";
+    return "default";
+  }
+
+  function handleSearch() {
+    var raw = input.value;
+    if (!raw || !raw.trim()) {
+      hint.textContent = "Type a film title first.";
+      return;
+    }
+
+    var key = normalize(raw);
+    var entry = FILM_DB[key];
+
+    if (!entry) {
+      var fallbackGenre = inferFallbackGenre(key);
+      entry = {
+        display: titleCase(raw.trim()),
+        genre: [fallbackGenre === "default" ? "unmapped" : fallbackGenre],
+        mood: ["inferred"],
+        era: "profile pending",
+        tracks: GENRE_FALLBACK[fallbackGenre]
+      };
+      hint.textContent = "No exact profile stored — showing a nearby match by inferred genre.";
+    } else {
+      hint.textContent = "Matched a stored sonic profile.";
+    }
+
+    filmTitle.textContent = entry.display;
+    renderChips(entry.genre, entry.mood, entry.era);
+    renderTracks(entry.tracks);
+    renderProviders(entry.display, entry.tracks);
+
+    emptyState.style.display = "none";
+    resultBlock.classList.add("is-visible");
+  }
+
+  button.addEventListener("click", handleSearch);
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") handleSearch();
+  });
+})();
+</script>
+
+</body>
+</html>
