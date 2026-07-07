@@ -24,4 +24,6 @@ what i learn :
          clude code
          gemini 3.5
          codex
+    7 ----> 
+         vibecoding its not vibin
          
