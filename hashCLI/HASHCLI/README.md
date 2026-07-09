@@ -62,15 +62,6 @@ hashcli/
 
 ## Installation
 
-Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/hashcli.git
-cd hashcli
-```
-
-Install dependencies:
-
 ```bash
 pip install rich
 ```
@@ -194,16 +185,9 @@ Contributions, bug reports, feature requests, and pull requests are always welco
 
 If you have ideas to improve performance, usability, or architecture, feel free to contribute.
 
----
-
-## License
-
-This project is released under the MIT License.
-
----
 
 ## Author
 
-**Dark God**
+**RWIN-x**
 
 Built with Python and a passion for clean command-line tools.
