@@ -1,5 +1,7 @@
 # CyberNotes
 
+not minimal ((will be deleted))
+
 Fast, minimal, IDLE-style desktop notes editor for security certification study
 (Network+ / Security+ / CEH / OSCP). Part of the `devforge` toolkit.
 
