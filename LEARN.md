@@ -27,7 +27,8 @@ what i learn :
     7 ----> 
          vibecoding its not vibin
 
+    8 ----> claude code is best 
 
-
-base44 ---> app crating and publishing
-\
+    base44 ---> app crating and publishing
+    \
+    ---
