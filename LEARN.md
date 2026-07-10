@@ -26,4 +26,8 @@ what i learn :
          codex
     7 ----> 
          vibecoding its not vibin
-         
+
+
+
+base44 ---> app crating and publishing
+\
