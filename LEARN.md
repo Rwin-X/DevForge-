@@ -33,3 +33,7 @@ what i learn :
     base44 ---> app crating and publishing
     \
     ---
+
+    9 ---->
+
+            i heve noooooo ideassss
