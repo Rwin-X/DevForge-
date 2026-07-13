@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Black Hole Simulator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  #canvas { display: block; position: absolute; top: 0; left: 0; }
+
+  #hud {
+    position: absolute; top: 16px; left: 16px;
+    color: #7fd8ff;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 6px rgba(127,216,255,0.6);
+    pointer-events: none;
+    user-select: none;
+    line-height: 1.5;
+  }
+  #hud .title {
+    font-size: 15px;
+    color: #eafcff;
+    text-shadow: 0 0 10px rgba(127,216,255,0.9);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  #hud .row { opacity: 0.85; }
+  #hud .label { color: #4d90a8; }
+
+  #panel {
+    position: absolute; top: 16px; right: 16px;
+    width: 220px;
+    background: rgba(5, 12, 18, 0.55);
+    border: 1px solid rgba(127,216,255,0.25);
+    border-radius: 6px;
+    padding: 14px 16px 16px;
+    color: #cfeeff;
+    font-size: 11px;
+    backdrop-filter: blur(4px);
+    pointer-events: auto;
+  }
+  #panel h3 {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #7fd8ff;
+    margin-bottom: 10px;
+    text-shadow: 0 0 6px rgba(127,216,255,0.5);
+    font-weight: normal;
+  }
+  .ctrl { margin-bottom: 12px; }
+  .ctrl label {
+    display: flex; justify-content: space-between;
+    margin-bottom: 4px;
+    color: #9fc9dd;
+  }
+  .ctrl label span:last-child { color: #7fd8ff; }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: rgba(127,216,255,0.25);
+    outline: none;
+    border-radius: 2px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: #7fd8ff;
+    box-shadow: 0 0 8px rgba(127,216,255,0.9);
+    cursor: pointer;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: #7fd8ff;
+    border: none;
+    box-shadow: 0 0 8px rgba(127,216,255,0.9);
+    cursor: pointer;
+  }
+  #btnrow { display: flex; gap: 8px; margin-top: 6px; }
+  button {
+    flex: 1;
+    background: rgba(127,216,255,0.08);
+    border: 1px solid rgba(127,216,255,0.35);
+    color: #7fd8ff;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 7px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  button:hover {
+    background: rgba(127,216,255,0.2);
+    box-shadow: 0 0 10px rgba(127,216,255,0.35);
+  }
+  button.active {
+    background: rgba(127,216,255,0.3);
+    box-shadow: 0 0 10px rgba(127,216,255,0.5);
+  }
+
+  #footer {
+    position: absolute; bottom: 12px; left: 16px;
+    color: #3d6e80;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  <div class="title">EVENT HORIZON // SIM</div>
+  <div class="row"><span class="label">MASS</span> <span id="hud-mass">1.0</span> M_sun (scaled)</div>
+  <div class="row"><span class="label">SCHWARZSCHILD R</span> <span id="hud-rs">--</span> px</div>
+  <div class="row"><span class="label">PARTICLES</span> <span id="hud-n">0</span></div>
+  <div class="row"><span class="label">ACCRETED</span> <span id="hud-acc">0</span></div>
+  <div class="row"><span class="label">FPS</span> <span id="hud-fps">--</span></div>
+</div>
+
+<div id="panel">
+  <h3>CONTROLS</h3>
+  <div class="ctrl">
+    <label><span>Mass</span><span id="v-mass">50</span></label>
+    <input type="range" id="mass" min="10" max="120" value="50">
+  </div>
+  <div class="ctrl">
+    <label><span>Disk density</span><span id="v-density">220</span></label>
+    <input type="range" id="density" min="40" max="500" value="220">
+  </div>
+  <div class="ctrl">
+    <label><span>Spacetime grid</span><span id="v-grid">on</span></label>
+    <input type="range" id="grid" min="0" max="1" value="1">
+  </div>
+  <div class="ctrl">
+    <label><span>Time flow</span><span id="v-speed">1.0x</span></label>
+    <input type="range" id="speed" min="0" max="30" value="10">
+  </div>
+  <div id="btnrow">
+    <button id="btn-burst">+ BURST</button>
+    <button id="btn-reset">RESET</button>
+  </div>
+</div>
+
+<div id="footer">click / drag to inject matter</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- state ----------
+let massSlider = 50;
+let RS = 0; // schwarzschild radius (px, scaled)
+let diskDensity = 220;
+let showGrid = true;
+let timeScale = 1.0;
+let accretedCount = 0;
+
+function updateRS() {
+  RS = 18 + massSlider * 1.15;
+}
+updateRS();
+
+// ---------- starfield background ----------
+const stars = [];
+for (let i = 0; i < 500; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    r: Math.random() * 1.2 + 0.2,
+    tw: Math.random() * Math.PI * 2,
+    baseA: Math.random() * 0.6 + 0.25
+  });
+}
+
+// ---------- particles (accretion disk + free matter) ----------
+// each particle: x,y (pos relative to center), vx, vy, or polar orbit params
+let particles = [];
+
+function spawnDiskParticle() {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = RS * 1.8 + Math.random() * RS * 6;
+  const speed = Math.sqrt(1800 / dist) * (0.9 + Math.random() * 0.25);
+  const dir = Math.random() < 0.5 ? 1 : -1; // mostly one direction but allow variety
+  return {
+    x: Math.cos(angle) * dist,
+    y: Math.sin(angle) * dist * 0.32, // flattened disk (perspective)
+    z: Math.sin(angle) * dist, // used for depth ordering/shading
+    dist: dist,
+    angle: angle,
+    speed: speed * 0.55,
+    dir: 1,
+    hue: 18 + Math.random() * 45, // orange->yellow->white range
+    size: 0.6 + Math.random() * 1.6,
+    trail: [],
+    alive: true,
+    free: false
+  };
+}
+
+function spawnFreeParticle(px, py, vx, vy) {
+  particles.push({
+    x: px - cx, y: py - cy,
+    vx: vx, vy: vy,
+    hue: 190 + Math.random() * 40,
+    size: 1.2 + Math.random() * 1.6,
+    trail: [],
+    alive: true,
+    free: true
+  });
+}
+
+function initDisk(n) {
+  particles = [];
+  for (let i = 0; i < n; i++) particles.push(spawnDiskParticle());
+}
+initDisk(diskDensity);
+
+// ---------- photon ring / lensing rays (visual) ----------
+// We fake gravitational lensing by drawing warped concentric arcs behind the hole
+// and bending starlight visually near the photon sphere.
+
+function drawSpacetimeGrid(t) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(90,170,210,0.14)';
+  ctx.lineWidth = 1;
+  const spacing = 46;
+  const rows = Math.ceil(H / spacing) + 2;
+  const cols = Math.ceil(W / spacing) + 2;
+
+  // horizontal lines warped
+  for (let r = -1; r < rows; r++) {
+    const y0 = r * spacing;
+    ctx.beginPath();
+    for (let c = -1; c <= cols; c++) {
+      const x0 = c * spacing;
+      const dx = x0 - cx, dy = y0 - cy;
+      const d = Math.sqrt(dx*dx + dy*dy) + 0.001;
+      const warp = Math.min(1, (RS * 9) / d);
+      const pull = warp * warp * 34;
+      const nx = x0 - (dx / d) * pull;
+      const ny = y0 - (dy / d) * pull;
+      if (c === -1) ctx.moveTo(nx, ny); else ctx.lineTo(nx, ny);
+    }
+    ctx.stroke();
+  }
+  // vertical lines warped
+  for (let c = -1; c < cols; c++) {
+    const x0 = c * spacing;
+    ctx.beginPath();
+    for (let r = -1; r <= rows; r++) {
+      const y0 = r * spacing;
+      const dx = x0 - cx, dy = y0 - cy;
+      const d = Math.sqrt(dx*dx + dy*dy) + 0.001;
+      const warp = Math.min(1, (RS * 9) / d);
+      const pull = warp * warp * 34;
+      const nx = x0 - (dx / d) * pull;
+      const ny = y0 - (dy / d) * pull;
+      if (r === -1) ctx.moveTo(nx, ny); else ctx.lineTo(nx, ny);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// lensed starfield: stars near the hole get displaced outward along a ring (Einstein-ring style fake)
+function drawStars(t) {
+  for (const s of stars) {
+    s.tw += 0.02;
+    const dx = s.x - cx, dy = s.y - cy;
+    const d = Math.sqrt(dx*dx + dy*dy) + 0.0001;
+    let dispX = s.x, dispY = s.y;
+
+    const lensRadius = RS * 7;
+    if (d < lensRadius) {
+      // bend the star outward/around, stronger near the edge -> ring glow effect
+      const bendStrength = (1 - d / lensRadius);
+      const ang = Math.atan2(dy, dx);
+      const newD = d + bendStrength * bendStrength * RS * 5.5;
+      dispX = cx + Math.cos(ang) * newD;
+      dispY = cy + Math.sin(ang) * newD;
+    }
+
+    if (d < RS * 1.05) continue; // swallowed
+
+    const a = s.baseA * (0.6 + 0.4 * Math.sin(s.tw));
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(220,235,255,${a})`;
+    ctx.arc(dispX, dispY, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// photon ring glow
+function drawPhotonRing(t) {
+  const ringR = RS * 1.55;
+  const grad = ctx.createRadialGradient(cx, cy, ringR * 0.75, cx, cy, ringR * 1.35);
+  grad.addColorStop(0, 'rgba(255,235,200,0)');
+  grad.addColorStop(0.55, 'rgba(255,225,180,0.55)');
+  grad.addColorStop(0.7, 'rgba(255,200,140,0.35)');
+  grad.addColorStop(1, 'rgba(255,200,140,0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringR * 1.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// event horizon (pure black disk)
+function drawHorizon() {
+  ctx.save();
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(cx, cy, RS, 0, Math.PI * 2);
+  ctx.fill();
+  // subtle rim
+  ctx.strokeStyle = 'rgba(255,210,160,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ---------- physics update ----------
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    if (!p.alive) { particles.splice(i, 1); continue; }
+
+    if (!p.free) {
+      // orbital motion for disk particles (keplerian-ish)
+      const angVel = p.speed / (p.dist * 0.02 + 1);
+      p.angle += angVel * dt * p.dir;
+      p.dist -= (28 / p.dist) * dt * 6; // slow infall
+      p.x = Math.cos(p.angle) * p.dist;
+      p.y = Math.sin(p.angle) * p.dist * 0.32;
+      p.z = Math.sin(p.angle) * p.dist;
+
+      p.trail.push({x: p.x, y: p.y});
+      if (p.trail.length > 6) p.trail.shift();
+
+      if (p.dist < RS * 1.02) {
+        p.alive = false;
+        accretedCount++;
+        // respawn a fresh one to keep density constant
+        particles.push(spawnDiskParticle());
+      }
+    } else {
+      // free particle: gravity toward center
+      const dx = -p.x, dy = -p.y;
+      const d = Math.sqrt(dx*dx + dy*dy) + 0.001;
+      const g = (2600 * massSlider / 50) / (d * d);
+      p.vx += (dx / d) * g * dt;
+      p.vy += (dy / d) * g * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      p.trail.push({x: p.x, y: p.y});
+      if (p.trail.length > 14) p.trail.shift();
+
+      if (d < RS * 1.02) {
+        p.alive = false;
+        accretedCount++;
+      }
+      if (d > Math.max(W, H) * 1.2) p.alive = false;
+    }
+  }
+}
+
+function drawParticles() {
+  // sort by z-ish (dist for disk = pseudo depth via y) so far side draws first
+  const disk = particles.filter(p => !p.free);
+  const free = particles.filter(p => p.free);
+
+  disk.sort((a, b) => a.z - b.z);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  for (const p of disk) {
+    const behind = p.z < 0; // simple "behind black hole" test
+    const dimming = behind ? 0.35 : 1;
+    const heat = Math.max(0, 1 - p.dist / (RS * 8));
+    const hue = 15 + heat * 45;
+    const light = 55 + heat * 25;
+
+    // trail
+    for (let t = 0; t < p.trail.length; t++) {
+      const tp = p.trail[t];
+      const a = (t / p.trail.length) * 0.35 * dimming;
+      ctx.fillStyle = `hsla(${hue}, 90%, ${light}%, ${a})`;
+      ctx.beginPath();
+      ctx.arc(cx + tp.x, cy + tp.y, p.size * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = `hsla(${hue}, 95%, ${light + 10}%, ${0.9 * dimming})`;
+    ctx.beginPath();
+    ctx.arc(cx + p.x, cy + p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const p of free) {
+    for (let t = 0; t < p.trail.length; t++) {
+      const tp = p.trail[t];
+      const a = (t / p.trail.length) * 0.4;
+      ctx.fillStyle = `hsla(${p.hue}, 90%, 65%, ${a})`;
+      ctx.beginPath();
+      ctx.arc(cx + tp.x, cy + tp.y, p.size * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = `hsla(${p.hue}, 95%, 75%, 0.95)`;
+    ctx.beginPath();
+    ctx.arc(cx + p.x, cy + p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ---------- jets (relativistic-ish, along vertical axis) ----------
+let jetParticles = [];
+function spawnJet() {
+  const up = Math.random() < 0.5 ? -1 : 1;
+  jetParticles.push({
+    x: (Math.random() - 0.5) * RS * 0.4,
+    y: 0,
+    vy: up * (4 + Math.random() * 3),
+    vx: (Math.random() - 0.5) * 0.3,
+    life: 0,
+    maxLife: 60 + Math.random() * 40
+  });
+}
+function updateJets(dt) {
+  if (Math.random() < 0.6) spawnJet();
+  for (let i = jetParticles.length - 1; i >= 0; i--) {
+    const j = jetParticles[i];
+    j.x += j.vx * dt * 5;
+    j.y += j.vy * dt * 5;
+    j.life += dt * 5;
+    if (j.life > j.maxLife) jetParticles.splice(i, 1);
+  }
+}
+function drawJets() {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const j of jetParticles) {
+    const a = Math.max(0, 1 - j.life / j.maxLife) * 0.6;
+    ctx.fillStyle = `rgba(150,210,255,${a})`;
+    ctx.beginPath();
+    ctx.arc(cx + j.x, cy + j.y, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---------- interaction ----------
+let dragging = false, lastMouse = null;
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  lastMouse = {x: e.clientX, y: e.clientY, t: performance.now()};
+});
+window.addEventListener('mouseup', () => dragging = false);
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const now = performance.now();
+  const dt = Math.max(1, now - lastMouse.t);
+  const vx = (e.clientX - lastMouse.x) / dt * 12;
+  const vy = (e.clientY - lastMouse.y) / dt * 12;
+  spawnFreeParticle(e.clientX, e.clientY, vx, vy);
+  lastMouse = {x: e.clientX, y: e.clientY, t: now};
+});
+canvas.addEventListener('click', e => {
+  if (dragging) return;
+  for (let i = 0; i < 8; i++) {
+    const a = Math.random() * Math.PI * 2;
+    spawnFreeParticle(e.clientX, e.clientY, Math.cos(a) * 1.5, Math.sin(a) * 1.5);
+  }
+});
+
+document.getElementById('btn-burst').addEventListener('click', () => {
+  for (let i = 0; i < 40; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.max(W, H) * 0.42;
+    const px = cx + Math.cos(a) * r;
+    const py = cy + Math.sin(a) * r;
+    const speed = 1.2 + Math.random() * 1.2;
+    spawnFreeParticle(px, py, -Math.cos(a) * speed * 0.3, -Math.sin(a) * speed * 0.3);
+  }
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  initDisk(diskDensity);
+  accretedCount = 0;
+});
+
+// sliders
+const massEl = document.getElementById('mass');
+const densityEl = document.getElementById('density');
+const gridEl = document.getElementById('grid');
+const speedEl = document.getElementById('speed');
+
+massEl.addEventListener('input', () => {
+  massSlider = +massEl.value;
+  document.getElementById('v-mass').textContent = massSlider;
+  updateRS();
+});
+densityEl.addEventListener('input', () => {
+  diskDensity = +densityEl.value;
+  document.getElementById('v-density').textContent = diskDensity;
+  const diff = diskDensity - particles.filter(p => !p.free).length;
+  if (diff > 0) for (let i = 0; i < diff; i++) particles.push(spawnDiskParticle());
+  else if (diff < 0) {
+    let removed = 0;
+    for (let i = particles.length - 1; i >= 0 && removed < -diff; i--) {
+      if (!particles[i].free) { particles.splice(i, 1); removed++; }
+    }
+  }
+});
+gridEl.addEventListener('input', () => {
+  showGrid = gridEl.value === '1';
+  document.getElementById('v-grid').textContent = showGrid ? 'on' : 'off';
+});
+speedEl.addEventListener('input', () => {
+  timeScale = (+speedEl.value) / 10;
+  document.getElementById('v-speed').textContent = timeScale.toFixed(1) + 'x';
+});
+
+// ---------- main loop ----------
+let lastT = performance.now();
+let fCount = 0;
+
+function frame(now) {
+  let dt = (now - lastT) / 16.6667;
+  dt = Math.min(dt, 3) * timeScale;
+  lastT = now;
+  fCount++;
+
+  ctx.fillStyle = 'rgba(0,0,0,1)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars(now);
+  if (showGrid) drawSpacetimeGrid(now);
+
+  updateParticles(dt);
+  updateJets(dt);
+
+  drawPhotonRing(now);
+  drawParticles();
+  drawJets();
+  drawHorizon();
+  drawPhotonRing(now);
+
+  document.getElementById('hud-mass').textContent = (massSlider / 50).toFixed(2);
+  document.getElementById('hud-rs').textContent = RS.toFixed(0);
+  document.getElementById('hud-n').textContent = particles.length;
+  document.getElementById('hud-acc').textContent = accretedCount;
+
+  requestAnimationFrame(frame);
+}
+
+setInterval(() => {
+  document.getElementById('hud-fps').textContent = fCount;
+  fCount = 0;
+}, 1000);
+
+requestAnimationFrame(frame);
+
+</script>
+</body>
+</html>
