@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event Horizon — Black Hole Simulator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+  #canvas { display: block; position: absolute; top: 0; left: 0; touch-action: none; }
+
+  /* ---------- shared glass ---------- */
+  .glass {
+    background: linear-gradient(160deg, rgba(10,18,26,0.72), rgba(6,11,17,0.62));
+    border: 1px solid rgba(130,200,255,0.16);
+    border-radius: 10px;
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  /* ---------- top bar ---------- */
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    pointer-events: none;
+    z-index: 20;
+  }
+  #brand {
+    display: flex; align-items: center; gap: 10px;
+    color: #dff4ff;
+    letter-spacing: 3px;
+    font-size: 13px;
+    text-shadow: 0 0 12px rgba(120,210,255,0.7);
+  }
+  #brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff, #7fd8ff 40%, #1a4a66 100%);
+    box-shadow: 0 0 10px 2px rgba(127,216,255,0.8);
+  }
+  #brand .sub { color: #4f7f96; font-size: 10px; letter-spacing: 2px; margin-left: 2px; }
+
+  #modeSwitch {
+    display: flex; gap: 2px;
+    padding: 3px;
+    pointer-events: auto;
+  }
+  #modeSwitch button {
+    background: transparent;
+    border: none;
+    color: #6fa2ba;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    padding: 7px 13px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  #modeSwitch button:hover { color: #bfe9ff; }
+  #modeSwitch button.active {
+    background: rgba(127,216,255,0.16);
+    color: #eafcff;
+    box-shadow: inset 0 0 0 1px rgba(127,216,255,0.35);
+  }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: absolute; top: 62px; left: 20px;
+    padding: 14px 16px;
+    width: 208px;
+    color: #bfe4f2;
+    font-size: 10.5px;
+    letter-spacing: 0.3px;
+    pointer-events: none;
+    z-index: 15;
+  }
+  #hud .stat { display: flex; justify-content: space-between; padding: 3px 0; }
+  #hud .stat .lab { color: #4d7f96; }
+  #hud .stat .val { color: #8fe6ff; text-shadow: 0 0 6px rgba(127,216,255,0.5); font-variant-numeric: tabular-nums; }
+  #hud .divider { height: 1px; background: rgba(127,216,255,0.12); margin: 8px 0; }
+  #hud .warn { color: #ffb37a; text-shadow: 0 0 6px rgba(255,179,122,0.5); }
+
+  /* ---------- control panel ---------- */
+  #panel {
+    position: absolute; top: 62px; right: 20px;
+    width: 236px;
+    padding: 16px 18px 18px;
+    color: #cfeeff;
+    font-size: 11px;
+    pointer-events: auto;
+    z-index: 20;
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+  }
+  #panel::-webkit-scrollbar { width: 4px; }
+  #panel::-webkit-scrollbar-thumb { background: rgba(127,216,255,0.25); border-radius: 4px; }
+
+  #panel h3 {
+    font-size: 10.5px;
+    letter-spacing: 2px;
+    color: #6fbcdd;
+    margin: 14px 0 10px;
+    font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #panel h3:first-child { margin-top: 0; }
+  #panel h3 .ico { opacity: 0.7; font-size: 10px; }
+
+  .ctrl { margin-bottom: 13px; }
+  .ctrl label {
+    display: flex; justify-content: space-between;
+    margin-bottom: 5px;
+    color: #9fc9dd;
+    font-size: 10.5px;
+  }
+  .ctrl label span:last-child { color: #7fd8ff; font-variant-numeric: tabular-nums; }
+  .ctrl .desc { font-size: 9px; color: #3f6a7c; margin-top: 3px; line-height: 1.4; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 3px;
+    background: rgba(127,216,255,0.2);
+    outline: none; border-radius: 2px;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff, #7fd8ff 55%, #2a7ba0);
+    box-shadow: 0 0 8px rgba(127,216,255,0.9);
+    cursor: pointer;
+    margin-top: -4.5px;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff, #7fd8ff 55%, #2a7ba0);
+    border: none; box-shadow: 0 0 8px rgba(127,216,255,0.9);
+    cursor: pointer;
+  }
+
+  .rowbtns { display: flex; gap: 7px; margin-top: 4px; }
+  .rowbtns.wrap { flex-wrap: wrap; }
+  button.act {
+    flex: 1; min-width: 60px;
+    background: rgba(127,216,255,0.07);
+    border: 1px solid rgba(127,216,255,0.3);
+    color: #7fd8ff;
+    font-family: inherit;
+    font-size: 9.5px;
+    letter-spacing: 0.8px;
+    padding: 8px 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  }
+  button.act:hover { background: rgba(127,216,255,0.18); box-shadow: 0 0 10px rgba(127,216,255,0.3); }
+  button.act:active { transform: scale(0.96); }
+  button.act.on {
+    background: rgba(127,216,255,0.28);
+    box-shadow: 0 0 10px rgba(127,216,255,0.45);
+    color: #eafcff;
+  }
+  button.act.danger { border-color: rgba(255,140,110,0.35); color: #ff9d7a; }
+  button.act.danger:hover { background: rgba(255,140,110,0.15); box-shadow: 0 0 10px rgba(255,140,110,0.3); }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .toggle-row .tlabel { color: #9fc9dd; font-size: 10.5px; }
+  .switch {
+    width: 32px; height: 17px;
+    border-radius: 20px;
+    background: rgba(127,216,255,0.15);
+    border: 1px solid rgba(127,216,255,0.3);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .switch::after {
+    content: '';
+    position: absolute; top: 1.5px; left: 2px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #7fd8ff;
+    box-shadow: 0 0 6px rgba(127,216,255,0.8);
+    transition: left 0.2s;
+  }
+  .switch.on { background: rgba(127,216,255,0.35); }
+  .switch.on::after { left: 16px; background: #eafcff; }
+
+  /* ---------- info card ---------- */
+  #infocard {
+    position: absolute; bottom: 20px; left: 20px;
+    width: 300px;
+    padding: 14px 16px;
+    color: #bfe4f2;
+    font-size: 10.5px;
+    line-height: 1.6;
+    z-index: 15;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    pointer-events: none;
+  }
+  #infocard.show { opacity: 1; transform: translateY(0); }
+  #infocard .ititle { color: #eafcff; font-size: 11.5px; letter-spacing: 1px; margin-bottom: 6px; text-shadow: 0 0 8px rgba(127,216,255,0.5); }
+
+  /* ---------- footer / hint ---------- */
+  #footer {
+    position: absolute; bottom: 20px; right: 20px;
+    color: #3d6e80;
+    font-size: 9.5px;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    user-select: none;
+    text-align: right;
+    line-height: 1.6;
+    z-index: 10;
+  }
+
+  #legend {
+    position: absolute; bottom: 20px; left: 20px;
+    padding: 10px 14px;
+    color: #9fc9dd;
+    font-size: 9.5px;
+    z-index: 12;
+    display: none;
+  }
+  #legend.show { display: block; }
+  #legend .lrow { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
+  #legend .sw { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  @media (max-width: 720px) {
+    #panel { width: calc(100vw - 40px); right: 20px; max-height: 40vh; }
+    #hud { display: none; }
+    #footer { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="topbar">
+  <div id="brand"><div class="dot"></div>EVENT HORIZON <span class="sub">// v2</span></div>
+  <div id="modeSwitch" class="glass">
+    <button data-mode="single" class="active">SCHWARZSCHILD</button>
+    <button data-mode="kerr">KERR (SPIN)</button>
+    <button data-mode="binary">BINARY MERGER</button>
+  </div>
+</div>
+
+<div id="hud" class="glass">
+  <div class="stat"><span class="lab">MASS</span><span class="val" id="hud-mass">1.00</span></div>
+  <div class="stat"><span class="lab">SCHW. RADIUS</span><span class="val" id="hud-rs">-- px</span></div>
+  <div class="stat"><span class="lab">SPIN a*</span><span class="val" id="hud-spin">0.00</span></div>
+  <div class="divider"></div>
+  <div class="stat"><span class="lab">PARTICLES</span><span class="val" id="hud-n">0</span></div>
+  <div class="stat"><span class="lab">ACCRETED</span><span class="val" id="hud-acc">0</span></div>
+  <div class="stat"><span class="lab">HAWKING QUANTA</span><span class="val" id="hud-hawk">0</span></div>
+  <div class="divider"></div>
+  <div class="stat"><span class="lab">SIM TIME</span><span class="val" id="hud-time">0.0s</span></div>
+  <div class="stat"><span class="lab">FPS</span><span class="val" id="hud-fps">--</span></div>
+  <div id="hud-mergewarn" class="stat warn" style="display:none"><span class="lab">⚠ INSPIRAL</span><span class="val" id="hud-merget">--</span></div>
+</div>
+
+<div id="panel" class="glass">
+
+  <h3><span class="ico">◈</span>BLACK HOLE</h3>
+  <div class="ctrl">
+    <label><span>Mass</span><span id="v-mass">50</span></label>
+    <input type="range" id="mass" min="10" max="140" value="50">
+  </div>
+  <div class="ctrl" id="spinCtrl" style="display:none">
+    <label><span>Spin a*</span><span id="v-spin">0.60</span></label>
+    <input type="range" id="spin" min="0" max="99" value="60">
+    <div class="desc">0 = Schwarzschild · 1 = extremal Kerr</div>
+  </div>
+
+  <h3><span class="ico">◉</span>ACCRETION DISK</h3>
+  <div class="ctrl">
+    <label><span>Density</span><span id="v-density">220</span></label>
+    <input type="range" id="density" min="40" max="600" value="220">
+  </div>
+  <div class="toggle-row">
+    <span class="tlabel">Doppler boosting</span>
+    <div class="switch on" id="tog-doppler"></div>
+  </div>
+  <div class="toggle-row">
+    <span class="tlabel">Relativistic beaming</span>
+    <div class="switch on" id="tog-beam"></div>
+  </div>
+
+  <h3><span class="ico">✦</span>QUANTUM</h3>
+  <div class="toggle-row">
+    <span class="tlabel">Hawking radiation</span>
+    <div class="switch" id="tog-hawking"></div>
+  </div>
+
+  <h3><span class="ico">▦</span>VISUALS</h3>
+  <div class="toggle-row">
+    <span class="tlabel">Spacetime grid</span>
+    <div class="switch on" id="tog-grid"></div>
+  </div>
+  <div class="toggle-row">
+    <span class="tlabel">Gravitational lensing</span>
+    <div class="switch on" id="tog-lens"></div>
+  </div>
+  <div class="toggle-row">
+    <span class="tlabel">Chromatic ring</span>
+    <div class="switch on" id="tog-chroma"></div>
+  </div>
+  <div class="toggle-row">
+    <span class="tlabel">Relativistic jets</span>
+    <div class="switch on" id="tog-jets"></div>
+  </div>
+  <div class="toggle-row">
+    <span class="tlabel">Info labels</span>
+    <div class="switch" id="tog-legend"></div>
+  </div>
+
+  <div class="ctrl">
+    <label><span>Time flow</span><span id="v-speed">1.0x</span></label>
+    <input type="range" id="speed" min="0" max="40" value="10">
+  </div>
+
+  <h3><span class="ico">◎</span>ACTIONS</h3>
+  <div class="rowbtns wrap">
+    <button class="act" id="btn-burst">+ BURST</button>
+    <button class="act" id="btn-star">+ STAR</button>
+    <button class="act danger" id="btn-reset">RESET</button>
+  </div>
+  <div class="rowbtns" style="margin-top:7px">
+    <button class="act" id="btn-preset-sag">SAGITTARIUS A*</button>
+  </div>
+  <div class="rowbtns" style="margin-top:7px">
+    <button class="act" id="btn-preset-m87">M87*</button>
+    <button class="act" id="btn-preset-stellar">STELLAR</button>
+  </div>
+</div>
+
+<div id="legend" class="glass">
+  <div class="lrow"><div class="sw" style="background:#ffd27a;box-shadow:0 0 6px #ffd27a"></div>Accretion disk (hot plasma)</div>
+  <div class="lrow"><div class="sw" style="background:#7fd8ff;box-shadow:0 0 6px #7fd8ff"></div>Injected matter</div>
+  <div class="lrow"><div class="sw" style="background:#c99bff;box-shadow:0 0 6px #c99bff"></div>Hawking quanta</div>
+  <div class="lrow"><div class="sw" style="background:#fff;box-shadow:0 0 6px #fff"></div>Photon ring</div>
+</div>
+
+<div id="infocard" class="glass"></div>
+
+<div id="footer">drag to inject matter · click for burst · hover objects for info</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ===================================================================
+   GLOBAL STATE
+=================================================================== */
+let mode = 'single'; // single | kerr | binary
+let massSlider = 50;
+let spinSlider = 0.6;
+let RS = 0;
+let diskDensity = 220;
+let showGrid = true, showLens = true, showChroma = true, showJets = true, showLegend = false;
+let dopplerOn = true, beamOn = true, hawkingOn = false;
+let timeScale = 1.0;
+let accretedCount = 0, hawkingCount = 0;
+let simTime = 0;
+let hoverObj = null;
+
+function updateRS() {
+  RS = 18 + massSlider * 1.15;
+}
+updateRS();
+
+/* ===================================================================
+   STARFIELD
+=================================================================== */
+const stars = [];
+function initStars(n) {
+  stars.length = 0;
+  for (let i = 0; i < n; i++) {
+    stars.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.3 + 0.2,
+      tw: Math.random() * Math.PI * 2,
+      baseA: Math.random() * 0.6 + 0.25,
+      hue: Math.random() < 0.15 ? (200 + Math.random()*60) : (30 + Math.random()*30)
+    });
+  }
+}
+initStars(650);
+
+/* ===================================================================
+   ACCRETION DISK PARTICLES (relativistic)
+=================================================================== */
+let particles = [];
+
+function spawnDiskParticle(originCx = 0, originCy = 0, rsLocal = RS) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = rsLocal * 1.9 + Math.random() * rsLocal * 6.5;
+  const speed = Math.sqrt(2000 / dist);
+  return {
+    angle, dist,
+    speed: speed * 0.5,
+    x: 0, y: 0, z: 0,
+    hue: 18 + Math.random() * 45,
+    size: 0.6 + Math.random() * 1.6,
+    trail: [],
+    alive: true, free: false, hawking: false,
+    ocx: originCx, ocy: originCy, rsLocal
+  };
+}
+function spawnFreeParticle(px, py, vx, vy, kind = 'matter') {
+  particles.push({
+    x: px - cx, y: py - cy, vx, vy,
+    hue: kind === 'star' ? (200) : (190 + Math.random() * 40),
+    size: kind === 'star' ? 3.2 : (1.2 + Math.random() * 1.6),
+    trail: [], alive: true, free: true, hawking: false, kind
+  });
+}
+function spawnHawkingQuantum() {
+  const angle = Math.random() * Math.PI * 2;
+  const startR = RS * (1.0 + Math.random() * 0.15);
+  const outward = Math.random() < 0.5;
+  const speed = outward ? (1.6 + Math.random() * 1.4) : 0;
+  particles.push({
+    x: Math.cos(angle) * startR, y: Math.sin(angle) * startR,
+    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+    hue: 265 + Math.random() * 25,
+    size: 0.9 + Math.random() * 0.8,
+    trail: [], alive: true, free: true, hawking: true,
+    life: 0, maxLife: 90 + Math.random() * 60,
+    escaping: outward
+  });
+}
+
+function initDisk(n) {
+  particles = particles.filter(p => p.free);
+  for (let i = 0; i < n; i++) particles.push(spawnDiskParticle());
+}
+initDisk(diskDensity);
+
+/* ===================================================================
+   SPACETIME GRID (warped mesh)
+=================================================================== */
+function warp(x0, y0, ocx, ocy, rsLocal, strength = 34) {
+  const dx = x0 - ocx, dy = y0 - ocy;
+  const d = Math.sqrt(dx*dx + dy*dy) + 0.001;
+  const w = Math.min(1, (rsLocal * 9) / d);
+  const pull = w * w * strength;
+  return [x0 - (dx/d) * pull, y0 - (dy/d) * pull];
+}
+
+function drawSpacetimeGrid() {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(100,180,220,0.13)';
+  ctx.lineWidth = 1;
+  const spacing = 46;
+  const rows = Math.ceil(H / spacing) + 2;
+  const cols = Math.ceil(W / spacing) + 2;
+
+  const centers = getGridSources();
+
+  for (let r = -1; r < rows; r++) {
+    const y0 = r * spacing;
+    ctx.beginPath();
+    for (let c = -1; c <= cols; c++) {
+      let x0 = c * spacing, y1 = y0;
+      for (const s of centers) {
+        const [nx, ny] = warp(x0, y1, s.x, s.y, s.rs, s.strength);
+        x0 = nx; y1 = ny;
+      }
+      if (c === -1) ctx.moveTo(x0, y1); else ctx.lineTo(x0, y1);
+    }
+    ctx.stroke();
+  }
+  for (let c = -1; c < cols; c++) {
+    const x0c = c * spacing;
+    ctx.beginPath();
+    for (let r = -1; r <= rows; r++) {
+      let x0 = x0c, y0 = r * spacing;
+      for (const s of centers) {
+        const [nx, ny] = warp(x0, y0, s.x, s.y, s.rs, s.strength);
+        x0 = nx; y0 = ny;
+      }
+      if (r === -1) ctx.moveTo(x0, y0); else ctx.lineTo(x0, y0);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function getGridSources() {
+  if (mode === 'binary') {
+    return [
+      { x: cx + bh1.x, y: cy + bh1.y, rs: bh1.rs, strength: 34 },
+      { x: cx + bh2.x, y: cy + bh2.y, rs: bh2.rs, strength: 34 }
+    ];
+  }
+  return [{ x: cx, y: cy, rs: RS, strength: 34 }];
+}
+
+/* ===================================================================
+   STARS with lensing
+=================================================================== */
+function drawStars() {
+  const sources = getGridSources();
+  for (const s of stars) {
+    s.tw += 0.02;
+    let dx = s.x - cx, dy = s.y - cy;
+    let dispX = s.x, dispY = s.y;
+    let swallowed = false;
+
+    for (const src of sources) {
+      const ddx = dispX - src.x, ddy = dispY - src.y;
+      const d = Math.sqrt(ddx*ddx + ddy*ddy) + 0.0001;
+      const lensRadius = src.rs * 7;
+      if (d < lensRadius) {
+        const bend = 1 - d / lensRadius;
+        const ang = Math.atan2(ddy, ddx);
+        const newD = d + bend * bend * src.rs * 5.2;
+        dispX = src.x + Math.cos(ang) * newD;
+        dispY = src.y + Math.sin(ang) * newD;
+      }
+      if (d < src.rs * 1.05) swallowed = true;
+    }
+    if (swallowed) continue;
+
+    const a = s.baseA * (0.6 + 0.4 * Math.sin(s.tw));
+    ctx.beginPath();
+    ctx.fillStyle = `hsla(${s.hue}, 60%, 88%, ${a})`;
+    ctx.arc(dispX, dispY, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/* ===================================================================
+   PHOTON RING (chromatic)
+=================================================================== */
+function drawPhotonRing(ocx, ocy, rsLocal, spin = 0) {
+  const ringR = rsLocal * 1.55;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  if (showChroma) {
+    // three offset rings (R/G/B) for a chromatic-aberration photon ring look
+    const offsets = [
+      { dx: -0.6, col: [255,120,120] },
+      { dx: 0,    col: [255,225,180] },
+      { dx: 0.6,  col: [140,180,255] }
+    ];
+    for (const o of offsets) {
+      const grad = ctx.createRadialGradient(ocx + o.dx, ocy, ringR*0.78, ocx + o.dx, ocy, ringR*1.3);
+      grad.addColorStop(0, `rgba(${o.col[0]},${o.col[1]},${o.col[2]},0)`);
+      grad.addColorStop(0.55, `rgba(${o.col[0]},${o.col[1]},${o.col[2]},0.28)`);
+      grad.addColorStop(0.72, `rgba(${o.col[0]},${o.col[1]},${o.col[2]},0.16)`);
+      grad.addColorStop(1, `rgba(${o.col[0]},${o.col[1]},${o.col[2]},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(ocx, ocy, ringR*1.3 * (1 + spin*0.12), ringR*1.3, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+  } else {
+    const grad = ctx.createRadialGradient(ocx, ocy, ringR*0.75, ocx, ocy, ringR*1.35);
+    grad.addColorStop(0, 'rgba(255,235,200,0)');
+    grad.addColorStop(0.55, 'rgba(255,225,180,0.55)');
+    grad.addColorStop(0.7, 'rgba(255,200,140,0.35)');
+    grad.addColorStop(1, 'rgba(255,200,140,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(ocx, ocy, ringR*1.35 * (1 + spin*0.12), ringR*1.35, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ===================================================================
+   EVENT HORIZON + ERGOSPHERE (Kerr)
+=================================================================== */
+function drawHorizon(ocx, ocy, rsLocal, spin = 0) {
+  ctx.save();
+
+  if (spin > 0.02) {
+    // ergosphere: oblate region outside horizon, pinched at poles
+    const ergoRx = rsLocal * (1 + spin * 0.55);
+    const ergoRy = rsLocal * (1 + spin * 0.15);
+    ctx.beginPath();
+    ctx.ellipse(ocx, ocy, ergoRx, ergoRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180,140,255,${0.06 + spin*0.05})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(200,160,255,${0.25 + spin*0.15})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  const hRx = rsLocal * (1 - spin*0.08);
+  ctx.ellipse(ocx, ocy, hRx, rsLocal, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,210,160,0.28)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ===================================================================
+   DISK PARTICLE PHYSICS
+=================================================================== */
+function updateDiskParticle(p, dt, ocx, ocy, rsLocal, spinBoost = 0) {
+  const angVel = p.speed / (p.dist * 0.02 + 1);
+  p.angle += angVel * dt * (1 + spinBoost * 1.6);
+  p.dist -= (28 / p.dist) * dt * 6;
+  p.x = Math.cos(p.angle) * p.dist;
+  p.y = Math.sin(p.angle) * p.dist * 0.32;
+  p.z = Math.sin(p.angle) * p.dist;
+
+  p.trail.push({x: p.x, y: p.y});
+  if (p.trail.length > 6) p.trail.shift();
+
+  if (p.dist < rsLocal * 1.02) {
+    p.alive = false;
+    accretedCount++;
+    return spawnDiskParticle(ocx, ocy, rsLocal);
+  }
+  return null;
+}
+
+function updateParticles(dt) {
+  const spinBoost = mode === 'kerr' ? spinSlider : 0;
+  const newOnes = [];
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    if (!p.alive) { particles.splice(i, 1); continue; }
+
+    if (!p.free) {
+      const replacement = updateDiskParticle(p, dt, cx, cy, RS, spinBoost);
+      if (replacement) newOnes.push(replacement);
+    } else if (p.hawking) {
+      p.life += dt;
+      const dx = -p.x, dy = -p.y;
+      const d = Math.sqrt(dx*dx+dy*dy) + 0.001;
+      if (p.escaping) {
+        p.x += p.vx * dt * 6;
+        p.y += p.vy * dt * 6;
+        p.vx *= 1.004; p.vy *= 1.004;
+      } else {
+        const g = 400 / (d*d);
+        p.vx += (dx/d) * g * dt;
+        p.vy += (dy/d) * g * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (d < RS * 1.02) { p.alive = false; continue; }
+      }
+      p.trail.push({x:p.x, y:p.y});
+      if (p.trail.length > 10) p.trail.shift();
+      if (p.life > p.maxLife) p.alive = false;
+    } else {
+      let fx = 0, fy = 0;
+      const sources = mode === 'binary' ? [
+        { x: bh1.x, y: bh1.y, m: bh1.mass, rs: bh1.rs },
+        { x: bh2.x, y: bh2.y, m: bh2.mass, rs: bh2.rs }
+      ] : [{ x: 0, y: 0, m: massSlider, rs: RS }];
+
+      let swallowed = false;
+      for (const s of sources) {
+        const dx = s.x - p.x, dy = s.y - p.y;
+        const d = Math.sqrt(dx*dx + dy*dy) + 0.001;
+        const g = (2600 * s.m / 50) / (d * d);
+        fx += (dx/d) * g;
+        fy += (dy/d) * g;
+        if (d < s.rs * 1.02) swallowed = true;
+      }
+      p.vx += fx * dt;
+      p.vy += fy * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      p.trail.push({x: p.x, y: p.y});
+      if (p.trail.length > 14) p.trail.shift();
+
+      if (swallowed) { p.alive = false; accretedCount++; continue; }
+      const dCenter = Math.sqrt(p.x*p.x + p.y*p.y);
+      if (dCenter > Math.max(W, H) * 1.3) p.alive = false;
+    }
+  }
+  for (const n of newOnes) particles.push(n);
+
+  if (hawkingOn && Math.random() < 0.35) {
+    spawnHawkingQuantum();
+    hawkingCount++;
+  }
+}
+
+/* ===================================================================
+   RENDERING DISK + FREE PARTICLES
+=================================================================== */
+function dopplerShift(p, ocx, ocy) {
+  // approximate: side approaching viewer (moving toward +x screen dir relative to rotation) brighter/bluer
+  if (!dopplerOn) return { hueShift: 0, boost: 1 };
+  const vx = -Math.sin(p.angle);
+  const approaching = vx > 0;
+  const strength = Math.min(1, p.speed * 0.9);
+  return {
+    hueShift: approaching ? -14 * strength : 10 * strength,
+    boost: approaching ? 1 + 0.6*strength : 1 - 0.35*strength
+  };
+}
+
+function drawDiskGroup(list, ocx, ocy, rsLocal) {
+  list.sort((a, b) => a.z - b.z);
+  for (const p of list) {
+    const behind = p.z < 0;
+    let dimming = behind ? 0.35 : 1;
+    const heat = Math.max(0, 1 - p.dist / (rsLocal * 8));
+    let hue = 15 + heat * 45;
+    let light = 55 + heat * 25;
+
+    const dop = dopplerShift(p, ocx, ocy);
+    hue += dop.hueShift;
+    let boost = dop.boost;
+    if (beamOn) {
+      const vx = -Math.sin(p.angle);
+      if (vx > 0) boost *= 1.15;
+    }
+    dimming *= Math.max(0.15, boost);
+
+    for (let t = 0; t < p.trail.length; t++) {
+      const tp = p.trail[t];
+      const a = (t / p.trail.length) * 0.35 * Math.min(1, dimming);
+      ctx.fillStyle = `hsla(${hue}, 90%, ${light}%, ${a})`;
+      ctx.beginPath();
+      ctx.arc(ocx + tp.x, ocy + tp.y, p.size * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = `hsla(${hue}, 95%, ${Math.min(95,light + 10)}%, ${Math.min(1, 0.9 * dimming)})`;
+    ctx.beginPath();
+    ctx.arc(ocx + p.x, ocy + p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawParticles() {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  if (mode === 'binary') {
+    const d1 = particles.filter(p => !p.free && p.ocx === undefined);
+  }
+  const disk = particles.filter(p => !p.free);
+  drawDiskGroup(disk, cx, cy, RS);
+
+  const free = particles.filter(p => p.free && !p.hawking);
+  for (const p of free) {
+    for (let t = 0; t < p.trail.length; t++) {
+      const tp = p.trail[t];
+      const a = (t / p.trail.length) * 0.4;
+      ctx.fillStyle = `hsla(${p.hue}, 90%, 65%, ${a})`;
+      ctx.beginPath();
+      ctx.arc(cx + tp.x, cy + tp.y, p.size * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = `hsla(${p.hue}, 95%, 75%, 0.95)`;
+    ctx.beginPath();
+    ctx.arc(cx + p.x, cy + p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const hawk = particles.filter(p => p.hawking);
+  for (const p of hawk) {
+    const a = Math.max(0, 1 - p.life / p.maxLife);
+    for (let t = 0; t < p.trail.length; t++) {
+      const tp = p.trail[t];
+      const ta = (t / p.trail.length) * 0.3 * a;
+      ctx.fillStyle = `hsla(${p.hue}, 85%, 70%, ${ta})`;
+      ctx.beginPath();
+      ctx.arc(cx + tp.x, cy + tp.y, p.size * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = `hsla(${p.hue}, 90%, 80%, ${a})`;
+    ctx.beginPath();
+    ctx.arc(cx + p.x, cy + p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/* ===================================================================
+   JETS
+=================================================================== */
+let jetParticles = [];
+function spawnJet(ocx = 0, ocy = 0, rsLocal = RS) {
+  const up = Math.random() < 0.5 ? -1 : 1;
+  jetParticles.push({
+    ox: ocx, oy: ocy,
+    x: (Math.random() - 0.5) * rsLocal * 0.4,
+    y: 0,
+    vy: up * (4 + Math.random() * 3),
+    vx: (Math.random() - 0.5) * 0.3,
+    life: 0, maxLife: 60 + Math.random() * 40
+  });
+}
+function updateJets(dt) {
+  if (showJets && Math.random() < 0.6) spawnJet();
+  for (let i = jetParticles.length - 1; i >= 0; i--) {
+    const j = jetParticles[i];
+    j.x += j.vx * dt * 5;
+    j.y += j.vy * dt * 5;
+    j.life += dt * 5;
+    if (j.life > j.maxLife) jetParticles.splice(i, 1);
+  }
+}
+function drawJets() {
+  if (!showJets) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const j of jetParticles) {
+    const a = Math.max(0, 1 - j.life / j.maxLife) * 0.6;
+    ctx.fillStyle = `rgba(150,210,255,${a})`;
+    ctx.beginPath();
+    ctx.arc(cx + j.ox + j.x, cy + j.oy + j.y, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ===================================================================
+   BINARY MERGER MODE
+=================================================================== */
+let bh1 = { x: -140, y: 0, mass: 40, rs: 0, angle: 0, dist: 140 };
+let bh2 = { x: 140, y: 0, mass: 30, rs: 0, angle: Math.PI, dist: 140 };
+let orbitalPeriod = 240;
+let mergeProgress = 0;
+let merged = false;
+let gwRipples = [];
+
+function resetBinary() {
+  bh1 = { x: -140, y: 0, mass: 40, rs: 0, angle: 0, dist: 150 };
+  bh2 = { x: 140, y: 0, mass: 30, rs: 0, angle: Math.PI, dist: 150 };
+  bh1.rs = 18 + bh1.mass * 1.15;
+  bh2.rs = 18 + bh2.mass * 1.15;
+  mergeProgress = 0;
+  merged = false;
+  gwRipples = [];
+}
+resetBinary();
+
+function updateBinary(dt) {
+  if (merged) return;
+  mergeProgress += dt * 0.35;
+  const shrink = Math.max(0.08, 1 - mergeProgress / 900);
+  const dist = 150 * shrink;
+  const angSpeed = 0.02 + (1 - shrink) * 0.09;
+  bh1.angle += angSpeed * dt;
+  bh2.angle = bh1.angle + Math.PI;
+  bh1.dist = dist; bh2.dist = dist;
+  bh1.x = Math.cos(bh1.angle) * dist;
+  bh1.y = Math.sin(bh1.angle) * dist * 0.4;
+  bh2.x = Math.cos(bh2.angle) * dist;
+  bh2.y = Math.sin(bh2.angle) * dist * 0.4;
+
+  if (Math.random() < 0.04 + (1-shrink)*0.25) {
+    gwRipples.push({ r: 10, a: 0.5, ox: 0, oy: 0 });
+  }
+
+  if (dist < (bh1.rs + bh2.rs) * 0.55) {
+    merged = true;
+    massSlider = bh1.mass + bh2.mass;
+    updateRS();
+    for (let i=0;i<10;i++) gwRipples.push({ r: 10 + i*8, a: 0.9, ox:0, oy:0 });
+  }
+}
+function updateGW(dt) {
+  for (let i = gwRipples.length - 1; i >= 0; i--) {
+    const g = gwRipples[i];
+    g.r += dt * 4.5;
+    g.a -= dt * 0.012;
+    if (g.a <= 0) gwRipples.splice(i, 1);
+  }
+}
+function drawGW() {
+  ctx.save();
+  for (const g of gwRipples) {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, g.r, g.r*0.45, 0, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(180,220,255,${Math.max(0,g.a)*0.5})`;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ===================================================================
+   INTERACTION
+=================================================================== */
+let dragging = false, lastMouse = null;
+canvas.addEventListener('pointerdown', e => {
+  dragging = true;
+  lastMouse = {x: e.clientX, y: e.clientY, t: performance.now()};
+});
+window.addEventListener('pointerup', () => dragging = false);
+window.addEventListener('pointermove', e => {
+  hoverCheck(e.clientX, e.clientY);
+  if (!dragging) return;
+  const now = performance.now();
+  const dt = Math.max(1, now - lastMouse.t);
+  const vx = (e.clientX - lastMouse.x) / dt * 12;
+  const vy = (e.clientY - lastMouse.y) / dt * 12;
+  spawnFreeParticle(e.clientX, e.clientY, vx, vy);
+  lastMouse = {x: e.clientX, y: e.clientY, t: now};
+});
+canvas.addEventListener('click', e => {
+  if (dragging) return;
+  for (let i = 0; i < 8; i++) {
+    const a = Math.random() * Math.PI * 2;
+    spawnFreeParticle(e.clientX, e.clientY, Math.cos(a) * 1.5, Math.sin(a) * 1.5);
+  }
+});
+
+function hoverCheck(mx, my) {
+  const dx = mx - cx, dy = my - cy;
+  const d = Math.sqrt(dx*dx + dy*dy);
+  const card = document.getElementById('infocard');
+  if (d < RS * 1.6 && mode !== 'binary') {
+    showInfo('EVENT HORIZON', mode === 'kerr'
+      ? `Point of no return for a spinning (Kerr) black hole. Spin a* = ${spinSlider.toFixed(2)} drags spacetime itself — frame dragging — causing the ergosphere you see bulging at the equator.`
+      : `Point of no return. Nothing crossing this radius — not even light — can escape. Radius scales linearly with mass: R = 2GM/c².`);
+  } else if (d < RS * 3 && mode !== 'binary') {
+    showInfo('PHOTON RING', `Light bent into near-circular orbits by extreme curvature. What you're seeing is gravitationally lensed emission from the far side of the disk, folded around the hole.`);
+  } else {
+    card.classList.remove('show');
+  }
+}
+function showInfo(title, body) {
+  const card = document.getElementById('infocard');
+  card.innerHTML = `<div class="ititle">${title}</div>${body}`;
+  card.classList.add('show');
+}
+
+/* ===================================================================
+   UI WIRING
+=================================================================== */
+document.getElementById('btn-burst').addEventListener('click', () => {
+  for (let i = 0; i < 40; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.max(W, H) * 0.42;
+    const px = cx + Math.cos(a) * r;
+    const py = cy + Math.sin(a) * r;
+    const speed = 1.2 + Math.random() * 1.2;
+    spawnFreeParticle(px, py, -Math.cos(a) * speed * 0.3, -Math.sin(a) * speed * 0.3);
+  }
+});
+document.getElementById('btn-star').addEventListener('click', () => {
+  const a = Math.random() * Math.PI * 2;
+  const r = Math.max(W, H) * 0.4;
+  const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+  const tangential = 0.9;
+  spawnFreeParticle(px, py, -Math.sin(a) * tangential, Math.cos(a) * tangential, 'star');
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  initDisk(diskDensity);
+  accretedCount = 0; hawkingCount = 0; simTime = 0;
+  resetBinary();
+});
+
+function applyPreset(m, s, mo) {
+  mode = mo || 'single';
+  setModeUI();
+  massSlider = m; spinSlider = s;
+  document.getElementById('mass').value = m;
+  document.getElementById('v-mass').textContent = m;
+  document.getElementById('spin').value = Math.round(s*99);
+  document.getElementById('v-spin').textContent = s.toFixed(2);
+  updateRS();
+  initDisk(diskDensity);
+}
+document.getElementById('btn-preset-sag').addEventListener('click', () => applyPreset(90, 0.5, 'kerr'));
+document.getElementById('btn-preset-m87').addEventListener('click', () => applyPreset(130, 0.9, 'kerr'));
+document.getElementById('btn-preset-stellar').addEventListener('click', () => applyPreset(22, 0.0, 'single'));
+
+/* sliders */
+const massEl = document.getElementById('mass');
+const spinEl = document.getElementById('spin');
+const densityEl = document.getElementById('density');
+const speedEl = document.getElementById('speed');
+
+massEl.addEventListener('input', () => {
+  massSlider = +massEl.value;
+  document.getElementById('v-mass').textContent = massSlider;
+  updateRS();
+});
+spinEl.addEventListener('input', () => {
+  spinSlider = (+spinEl.value) / 99;
+  document.getElementById('v-spin').textContent = spinSlider.toFixed(2);
+});
+densityEl.addEventListener('input', () => {
+  diskDensity = +densityEl.value;
+  document.getElementById('v-density').textContent = diskDensity;
+  const diff = diskDensity - particles.filter(p => !p.free).length;
+  if (diff > 0) for (let i = 0; i < diff; i++) particles.push(spawnDiskParticle());
+  else if (diff < 0) {
+    let removed = 0;
+    for (let i = particles.length - 1; i >= 0 && removed < -diff; i--) {
+      if (!particles[i].free) { particles.splice(i, 1); removed++; }
+    }
+  }
+});
+speedEl.addEventListener('input', () => {
+  timeScale = (+speedEl.value) / 10;
+  document.getElementById('v-speed').textContent = timeScale.toFixed(1) + 'x';
+});
+
+/* toggles */
+function wireToggle(id, getter, setter) {
+  const el = document.getElementById(id);
+  el.classList.toggle('on', getter());
+  el.addEventListener('click', () => {
+    const v = !getter();
+    setter(v);
+    el.classList.toggle('on', v);
+  });
+}
+wireToggle('tog-grid', () => showGrid, v => showGrid = v);
+wireToggle('tog-lens', () => showLens, v => showLens = v);
+wireToggle('tog-chroma', () => showChroma, v => showChroma = v);
+wireToggle('tog-jets', () => showJets, v => showJets = v);
+wireToggle('tog-doppler', () => dopplerOn, v => dopplerOn = v);
+wireToggle('tog-beam', () => beamOn, v => beamOn = v);
+wireToggle('tog-hawking', () => hawkingOn, v => hawkingOn = v);
+wireToggle('tog-legend', () => showLegend, v => {
+  showLegend = v;
+  document.getElementById('legend').classList.toggle('show', v);
+});
+
+/* mode switch */
+function setModeUI() {
+  document.querySelectorAll('#modeSwitch button').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  document.getElementById('spinCtrl').style.display = mode === 'kerr' ? 'block' : 'none';
+  document.getElementById('hud-spin').parentElement.style.display = mode === 'kerr' ? 'flex' : 'none';
+  document.getElementById('hud-mergewarn').style.display = 'none';
+  if (mode === 'binary') resetBinary();
+}
+document.querySelectorAll('#modeSwitch button').forEach(b => {
+  b.addEventListener('click', () => {
+    mode = b.dataset.mode;
+    setModeUI();
+  });
+});
+setModeUI();
+
+/* ===================================================================
+   MAIN LOOP
+=================================================================== */
+let lastT = performance.now();
+let fCount = 0;
+
+function frame(now) {
+  let dt = (now - lastT) / 16.6667;
+  dt = Math.min(dt, 3) * timeScale;
+  lastT = now;
+  fCount++;
+  simTime += dt / 60;
+
+  ctx.fillStyle = 'rgba(0,0,0,1)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+  if (showGrid) drawSpacetimeGrid();
+
+  if (mode === 'binary') {
+    updateBinary(dt);
+    updateGW(dt);
+    drawGW();
+
+    updateParticles(dt);
+    updateJets(dt);
+
+    if (showLens) {
+      drawPhotonRing(cx + bh1.x, cy + bh1.y, bh1.rs, 0);
+      if (!merged) drawPhotonRing(cx + bh2.x, cy + bh2.y, bh2.rs, 0);
+    }
+    drawParticles();
+    drawJets();
+    drawHorizon(cx + bh1.x, cy + bh1.y, bh1.rs, 0);
+    if (!merged) drawHorizon(cx + bh2.x, cy + bh2.y, bh2.rs, 0);
+    if (showLens) {
+      drawPhotonRing(cx + bh1.x, cy + bh1.y, bh1.rs, 0);
+      if (!merged) drawPhotonRing(cx + bh2.x, cy + bh2.y, bh2.rs, 0);
+    }
+
+    document.getElementById('hud-mergewarn').style.display = merged ? 'none' : 'flex';
+    document.getElementById('hud-merget').textContent = merged ? 'MERGED' : (Math.max(0,(900-mergeProgress)/60)).toFixed(1)+'s';
+  } else {
+    updateParticles(dt);
+    updateJets(dt);
+
+    if (showLens) drawPhotonRing(cx, cy, RS, mode === 'kerr' ? spinSlider : 0);
+    drawParticles();
+    drawJets();
+    drawHorizon(cx, cy, RS, mode === 'kerr' ? spinSlider : 0);
+    if (showLens) drawPhotonRing(cx, cy, RS, mode === 'kerr' ? spinSlider : 0);
+  }
+
+  document.getElementById('hud-mass').textContent = (massSlider / 50).toFixed(2);
+  document.getElementById('hud-rs').textContent = RS.toFixed(0) + ' px';
+  document.getElementById('hud-spin').textContent = spinSlider.toFixed(2);
+  document.getElementById('hud-n').textContent = particles.length;
+  document.getElementById('hud-acc').textContent = accretedCount;
+  document.getElementById('hud-hawk').textContent = hawkingCount;
+  document.getElementById('hud-time').textContent = simTime.toFixed(1) + 's';
+
+  requestAnimationFrame(frame);
+}
+
+setInterval(() => {
+  document.getElementById('hud-fps').textContent = fCount;
+  fCount = 0;
+}, 1000);
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
