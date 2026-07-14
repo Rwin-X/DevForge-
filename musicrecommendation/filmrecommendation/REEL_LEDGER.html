@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REEL LEDGER — Film Discovery Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper-0: #FAF9F6;
+    --paper-1: #FFFFFF;
+    --glass: rgba(255,255,255,0.62);
+    --glass-strong: rgba(255,255,255,0.82);
+    --glass-border: rgba(255,255,255,0.95);
+    --line: #D8D3C8;
+    --line-soft: #E7E3D8;
+    --ink: #2B2A28;
+    --ink-soft: #6B675C;
+    --ink-faint: #8A8578;
+    --stamp: #B8433D;
+    --stamp-soft: #D98E89;
+    --stamp-wash: rgba(184,67,61,0.08);
+    --film-hi: #B8433D;
+    --film-mid: #C9A24B;
+    --film-lo: #4E7A6B;
+    --radius-lg: 18px;
+    --radius-md: 12px;
+    --radius-sm: 7px;
+    --shadow-soft: 0 10px 30px rgba(43,42,40,0.07);
+    --shadow-lift: 0 18px 46px rgba(43,42,40,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Source Serif 4', serif;
+    background:
+      radial-gradient(circle at 10% -5%, #F3EDE0 0%, transparent 40%),
+      radial-gradient(circle at 92% 8%, #EFE7DC 0%, transparent 38%),
+      linear-gradient(180deg, var(--paper-1) 0%, var(--paper-0) 100%);
+    background-attachment: fixed;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 52px 24px 90px;
+  }
+  /* subtle paper grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(43,42,40,0.012) 0px, transparent 1px, transparent 2px),
+      repeating-linear-gradient(90deg, rgba(43,42,40,0.012) 0px, transparent 1px, transparent 2px);
+    z-index: 0;
+  }
+
+  .wrap { max-width: 980px; margin: 0 auto; position: relative; z-index: 1; }
+
+  /* ---------- Header ---------- */
+  header { text-align: center; margin-bottom: 44px; }
+
+  .catalog-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.3em;
+    color: var(--stamp);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .catalog-mark::before, .catalog-mark::after {
+    content: '';
+    width: 30px;
+    height: 1px;
+    background: var(--stamp-soft);
+  }
+
+  h1 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: clamp(34px, 5.2vw, 54px);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    font-family: 'Source Serif 4', serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 16px;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* ---------- Call slip search ---------- */
+  .slip-shell { max-width: 640px; margin: 40px auto 8px; }
+
+  .call-slip {
+    background: var(--glass-strong);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
+    padding: 22px 22px 18px;
+    position: relative;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 24px 100%, 0 calc(100% - 24px));
+  }
+
+  .slip-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .slip-input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    border-bottom: 1.5px solid var(--ink);
+    padding-bottom: 10px;
+  }
+
+  #searchInput {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'Source Serif 4', serif;
+    font-size: 18px;
+    color: var(--ink);
+    padding: 4px 2px;
+  }
+  #searchInput::placeholder { color: var(--ink-faint); font-style: italic; }
+
+  #searchBtn {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--paper-0);
+    border: none;
+    border-radius: 3px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.25s ease, transform 0.15s ease;
+    white-space: nowrap;
+  }
+  #searchBtn:hover { background: var(--stamp); }
+  #searchBtn:active { transform: scale(0.97); }
+
+  .search-hint {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- Status ---------- */
+  .status-line {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 30px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+  .status-line.active { display: flex; }
+
+  .pulse-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--stamp);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+
+  .error-box {
+    display: none;
+    max-width: 560px;
+    margin: 24px auto;
+    padding: 16px 20px;
+    background: var(--stamp-wash);
+    border: 1px solid rgba(184,67,61,0.25);
+    border-radius: var(--radius-sm);
+    color: var(--stamp);
+    font-size: 14px;
+    text-align: center;
+    font-family: 'Source Serif 4', serif;
+  }
+  .error-box.active { display: block; }
+
+  /* ---------- Seed folio ---------- */
+  #seedSection { display: none; margin-top: 40px; }
+  #seedSection.active { display: block; animation: riseIn 0.5s ease both; }
+
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 14px;
+    padding-left: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line-soft);
+  }
+
+  .seed-folio {
+    background: var(--glass);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    padding: 26px;
+    display: flex;
+    gap: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .seed-poster-wrap { position: relative; flex-shrink: 0; }
+  .seed-poster {
+    width: 110px; height: 165px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    box-shadow: 0 8px 22px rgba(43,42,40,0.18);
+    background: var(--line-soft);
+  }
+
+  .punch-hole {
+    position: absolute;
+    left: -19px; top: 50%;
+    transform: translateY(-50%);
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--paper-0);
+    border: 1.5px solid var(--line);
+    box-shadow: inset 0 2px 3px rgba(43,42,40,0.15);
+    display: none;
+  }
+
+  .seed-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .seed-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .seed-title {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 24px;
+    letter-spacing: 0.005em;
+  }
+  .seed-year {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+
+  .seed-meta {
+    font-family: 'Source Serif 4', serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 6px 0 12px;
+  }
+
+  .seed-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    padding: 4px 11px;
+    border-radius: 3px;
+    background: var(--stamp-wash);
+    color: var(--stamp);
+    border: 1px solid rgba(184,67,61,0.18);
+  }
+
+  .seed-play {
+    position: absolute;
+    top: 24px; right: 24px;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: none;
+    background: var(--ink);
+    color: var(--paper-0);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.25s ease, transform 0.15s ease;
+  }
+  .seed-play:hover { background: var(--stamp); transform: scale(1.05); }
+  .seed-play svg { width: 17px; height: 17px; }
+  .seed-play.playing { background: var(--stamp); }
+
+  /* ---------- Shelf grid ---------- */
+  #resultsSection { display: none; margin-top: 46px; }
+  #resultsSection.active { display: block; animation: riseIn 0.5s ease 0.1s both; }
+
+  .shelf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 18px;
+  }
+
+  .film-card {
+    background: var(--glass);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    position: relative;
+  }
+  .film-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* film-strip perforation top edge */
+  .filmstrip {
+    display: flex;
+    gap: 5px;
+    padding: 6px 10px;
+    background: var(--ink);
+  }
+  .filmstrip span {
+    width: 6px; height: 6px;
+    border-radius: 1.5px;
+    background: var(--paper-0);
+    opacity: 0.85;
+  }
+
+  .card-poster-wrap { position: relative; }
+  .card-poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+    background: var(--line-soft);
+  }
+
+  .match-stamp {
+    position: absolute;
+    top: 10px; right: -6px;
+    background: var(--paper-1);
+    border: 1.5px solid var(--stamp);
+    color: var(--stamp);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    transform: rotate(6deg);
+    box-shadow: 0 3px 10px rgba(43,42,40,0.15);
+    letter-spacing: 0.02em;
+  }
+
+  .card-body { padding: 14px 14px 16px; }
+
+  .card-title {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 1.25;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+
+  .genre-track {
+    height: 4px;
+    background: var(--line-soft);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .genre-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--film-mid), var(--stamp));
+    width: 0%;
+    transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .genre-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .mini-play {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--glass-strong);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  .mini-play:hover { border-color: var(--stamp); background: var(--stamp); }
+  .mini-play:hover svg { fill: var(--paper-0); }
+  .mini-play svg { width: 10px; height: 10px; fill: var(--ink-soft); transition: fill 0.2s ease; }
+  .mini-play.playing { background: var(--stamp); border-color: var(--stamp); }
+  .mini-play.playing svg { fill: var(--paper-0); }
+
+  .no-preview {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-faint);
+    opacity: 0.65;
+    text-transform: uppercase;
+  }
+
+  /* ---------- Video preview overlay ---------- */
+  .preview-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(43,42,40,0.55);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .preview-overlay.active { display: flex; }
+
+  .preview-box {
+    background: var(--paper-1);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    max-width: 560px;
+    width: 100%;
+    box-shadow: var(--shadow-lift);
+    position: relative;
+  }
+  .preview-box video {
+    width: 100%;
+    border-radius: var(--radius-sm);
+    display: block;
+    background: #000;
+  }
+  .preview-close {
+    position: absolute;
+    top: -14px; right: -14px;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper-0);
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview-close:hover { background: var(--stamp); }
+  .preview-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 15px;
+    margin-top: 12px;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- Empty state ---------- */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-faint);
+  }
+  .empty-state svg { margin-bottom: 16px; opacity: 0.5; }
+  .empty-state p { font-family: 'Source Serif 4', serif; font-style: italic; font-size: 14px; }
+
+  footer {
+    text-align: center;
+    margin-top: 68px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 560px) {
+    body { padding: 36px 16px 70px; }
+    .seed-folio { flex-wrap: wrap; }
+    .seed-play { position: static; margin-top: 12px; }
+    .seed-poster { width: 90px; height: 135px; }
+  }
+
+  ::selection { background: var(--stamp-wash); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="catalog-mark">Reel Ledger · Vol. I</div>
+    <h1>Trace a film to its kin</h1>
+    <p class="subtitle">Enter a title. The ledger cross-references genre, era and cast to pull related reels from the shelf — each with its own clip.</p>
+  </header>
+
+  <div class="slip-shell">
+    <div class="call-slip">
+      <div class="slip-label"><span>Request Slip</span><span id="dateStamp"></span></div>
+      <div class="slip-input-row">
+        <input type="text" id="searchInput" placeholder="Title of film…" autocomplete="off">
+        <button id="searchBtn">Retrieve</button>
+      </div>
+    </div>
+    <div class="search-hint">Catalog: iTunes Store · clips run 30–90 seconds where available</div>
+  </div>
+
+  <div class="status-line" id="statusLine">
+    <div class="pulse-dot"></div>
+    <span id="statusText">Searching the shelves…</span>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <section id="seedSection">
+    <div class="section-label">Requested reel</div>
+    <div class="seed-folio" id="seedFolio"></div>
+  </section>
+
+  <section id="resultsSection">
+    <div class="section-label">Related reels</div>
+    <div class="shelf-grid" id="resultsGrid"></div>
+  </section>
+
+</div>
+
+<div class="preview-overlay" id="previewOverlay">
+  <div class="preview-box">
+    <button class="preview-close" id="previewClose">&times;</button>
+    <video id="previewVideo" controls autoplay playsinline></video>
+    <div class="preview-title" id="previewTitle"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const searchInput = document.getElementById('searchInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const statusLine = document.getElementById('statusLine');
+  const statusText = document.getElementById('statusText');
+  const errorBox = document.getElementById('errorBox');
+  const seedSection = document.getElementById('seedSection');
+  const seedFolio = document.getElementById('seedFolio');
+  const resultsSection = document.getElementById('resultsSection');
+  const resultsGrid = document.getElementById('resultsGrid');
+  const previewOverlay = document.getElementById('previewOverlay');
+  const previewVideo = document.getElementById('previewVideo');
+  const previewTitle = document.getElementById('previewTitle');
+  const previewClose = document.getElementById('previewClose');
+  const dateStamp = document.getElementById('dateStamp');
+
+  dateStamp.textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+
+  // ---------- Tone / register heuristics ----------
+  // iTunes exposes no mood/tone signal for film, only genre labels.
+  // This maps genre to an approximate tonal register so related reels
+  // can be scored on more than shared genre strings alone.
+  const GENRE_PROFILES = {
+    'horror':          { intensity: 0.90, tone: 'unsettling', color: '#B8433D' },
+    'thriller':         { intensity: 0.80, tone: 'tense',      color: '#B8433D' },
+    'suspense/thriller':{ intensity: 0.80, tone: 'tense',      color: '#B8433D' },
+    'action & adventure':{intensity: 0.85, tone: 'kinetic',    color: '#C9A24B' },
+    'action':           { intensity: 0.85, tone: 'kinetic',    color: '#C9A24B' },
+    'sci-fi & fantasy':{ intensity: 0.65, tone: 'speculative', color: '#4E7A6B' },
+    'science fiction':  { intensity: 0.65, tone: 'speculative', color: '#4E7A6B' },
+    'fantasy':          { intensity: 0.55, tone: 'speculative', color: '#4E7A6B' },
+    'drama':            { intensity: 0.40, tone: 'reflective',  color: '#6B675C' },
+    'romance':          { intensity: 0.35, tone: 'tender',      color: '#D98E89' },
+    'comedy':           { intensity: 0.45, tone: 'light',       color: '#C9A24B' },
+    'documentary':      { intensity: 0.30, tone: 'observational',color: '#8A8578' },
+    'crime':            { intensity: 0.75, tone: 'tense',       color: '#B8433D' },
+    'mystery':          { intensity: 0.65, tone: 'tense',       color: '#6B675C' },
+    'animation':        { intensity: 0.40, tone: 'light',       color: '#C9A24B' },
+    'kids & family':    { intensity: 0.25, tone: 'light',       color: '#C9A24B' },
+    'musical':          { intensity: 0.40, tone: 'buoyant',     color: '#D98E89' },
+    'western':          { intensity: 0.60, tone: 'stark',       color: '#8A8578' },
+    'war':              { intensity: 0.80, tone: 'grave',       color: '#6B675C' },
+    'classics':         { intensity: 0.40, tone: 'reflective',  color: '#8A8578' },
+    'independent':      { intensity: 0.45, tone: 'reflective',  color: '#4E7A6B' },
+    'anime':            { intensity: 0.55, tone: 'speculative', color: '#4E7A6B' },
+    'biography':        { intensity: 0.40, tone: 'reflective',  color: '#6B675C' },
+    'history':          { intensity: 0.40, tone: 'grave',       color: '#8A8578' },
+  };
+  const DEFAULT_PROFILE = { intensity: 0.5, tone: 'measured', color: '#8A8578' };
+
+  function profileFor(genre) {
+    if (!genre) return DEFAULT_PROFILE;
+    const key = genre.toLowerCase();
+    if (GENRE_PROFILES[key]) return GENRE_PROFILES[key];
+    for (const g in GENRE_PROFILES) {
+      if (key.includes(g) || g.includes(key)) return GENRE_PROFILES[g];
+    }
+    return DEFAULT_PROFILE;
+  }
+
+  // ---------- Similarity scoring ----------
+  function similarityScore(seed, candidate) {
+    let score = 0;
+
+    if (candidate.artistName && seed.artistName &&
+        candidate.artistName.toLowerCase() === seed.artistName.toLowerCase()) {
+      score += 20; // shared director/studio credit field in iTunes
+    }
+
+    const seedGenre = (seed.primaryGenreName || '').toLowerCase();
+    const candGenre = (candidate.primaryGenreName || '').toLowerCase();
+    if (seedGenre && candGenre) {
+      if (seedGenre === candGenre) score += 38;
+      else if (seedGenre.includes(candGenre) || candGenre.includes(seedGenre)) score += 20;
+    }
+
+    const seedProfile = profileFor(seed.primaryGenreName);
+    const candProfile = profileFor(candidate.primaryGenreName);
+    const intensityDelta = Math.abs(seedProfile.intensity - candProfile.intensity);
+    score += Math.max(0, 24 - intensityDelta * 55);
+    if (seedProfile.tone === candProfile.tone) score += 10;
+
+    if (seed.releaseDate && candidate.releaseDate) {
+      const yearDiff = Math.abs(
+        new Date(seed.releaseDate).getFullYear() - new Date(candidate.releaseDate).getFullYear()
+      );
+      score += Math.max(0, 8 - yearDiff / 4);
+    }
+
+    return Math.min(99, Math.max(35, Math.round(score)));
+  }
+
+  // ---------- iTunes fetch helpers ----------
+  async function itunesSearch(term, entity, limit, extraParams) {
+    let url = 'https://itunes.apple.com/search?term=' + encodeURIComponent(term) +
+              '&entity=' + entity + '&limit=' + limit;
+    if (extraParams) url += extraParams;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Catalog request failed (' + res.status + ')');
+    const data = await res.json();
+    return data.results || [];
+  }
+
+  function hiResArt(url) {
+    if (!url) return '';
+    return url.replace('100x100', '400x400').replace('600x600', '600x600');
+  }
+
+  function formatRuntime(ms) {
+    if (!ms) return '';
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ---------- Preview playback (modal video) ----------
+  function openPreview(url, title) {
+    if (!url) return;
+    previewVideo.src = url;
+    previewTitle.textContent = title;
+    previewOverlay.classList.add('active');
+    previewVideo.play().catch(() => {});
+  }
+  function closePreview() {
+    previewVideo.pause();
+    previewVideo.src = '';
+    previewOverlay.classList.remove('active');
+  }
+  previewClose.addEventListener('click', closePreview);
+  previewOverlay.addEventListener('click', e => {
+    if (e.target === previewOverlay) closePreview();
+  });
+
+  const ICON_PLAY_LG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const ICON_PLAY_SM = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+
+  // ---------- Rendering ----------
+  function renderSeed(film) {
+    const profile = profileFor(film.primaryGenreName);
+    seedFolio.innerHTML = `
+      <div class="seed-poster-wrap">
+        <div class="punch-hole"></div>
+        <img class="seed-poster" src="${hiResArt(film.artworkUrl100)}" alt="${escapeHtml(film.trackName)}" loading="lazy">
+      </div>
+      <div class="seed-info">
+        <div class="seed-title-row">
+          <div class="seed-title">${escapeHtml(film.trackName)}</div>
+          ${film.releaseDate ? `<div class="seed-year">${new Date(film.releaseDate).getFullYear()}</div>` : ''}
+        </div>
+        <div class="seed-meta">${escapeHtml(film.artistName || 'Unknown director')}${film.trackTimeMillis ? ' · ' + formatRuntime(film.trackTimeMillis) : ''}</div>
+        <div class="seed-tags">
+          <span class="tag">${escapeHtml(film.primaryGenreName || 'Unclassified')}</span>
+          <span class="tag">${profile.tone}</span>
+          ${film.contentAdvisoryRating ? `<span class="tag">${escapeHtml(film.contentAdvisoryRating)}</span>` : ''}
+        </div>
+      </div>
+    `;
+    if (film.previewUrl) {
+      const btn = document.createElement('button');
+      btn.className = 'seed-play';
+      btn.innerHTML = ICON_PLAY_LG;
+      btn.title = 'Play clip';
+      btn.addEventListener('click', () => openPreview(film.previewUrl, film.trackName));
+      seedFolio.appendChild(btn);
+    }
+    seedSection.classList.add('active');
+  }
+
+  function renderResults(seed, candidates) {
+    resultsGrid.innerHTML = '';
+
+    if (candidates.length === 0) {
+      resultsGrid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="5" width="18" height="14" rx="1"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+          </svg>
+          <p>No related reels on the shelf. Try another title.</p>
+        </div>
+      `;
+      resultsSection.classList.add('active');
+      return;
+    }
+
+    const scored = candidates
+      .map(c => ({ film: c, score: similarityScore(seed, c) }))
+      .sort((a, b) => b.score - a.score);
+
+    scored.forEach(({ film, score }, i) => {
+      const profile = profileFor(film.primaryGenreName);
+      const card = document.createElement('div');
+      card.className = 'film-card';
+      card.style.animationDelay = (i * 40) + 'ms';
+
+      const perfHoles = Array.from({ length: 9 }).map(() => '<span></span>').join('');
+
+      card.innerHTML = `
+        <div class="filmstrip">${perfHoles}</div>
+        <div class="card-poster-wrap">
+          <img class="card-poster" src="${hiResArt(film.artworkUrl100)}" alt="${escapeHtml(film.trackName)}" loading="lazy">
+          <div class="match-stamp">${score}%</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">${escapeHtml(film.trackName)}</div>
+          <div class="card-meta">${film.releaseDate ? new Date(film.releaseDate).getFullYear() : '—'}${film.trackTimeMillis ? ' · ' + formatRuntime(film.trackTimeMillis) : ''}</div>
+          <div class="genre-track"><div class="genre-fill" data-target="${score}" style="background:linear-gradient(90deg, ${profile.color}99, ${profile.color})"></div></div>
+          <div class="card-footer">
+            <span class="genre-chip">${escapeHtml(film.primaryGenreName || profile.tone)}</span>
+          </div>
+        </div>
+      `;
+
+      const footer = card.querySelector('.card-footer');
+      if (film.previewUrl) {
+        const btn = document.createElement('button');
+        btn.className = 'mini-play';
+        btn.innerHTML = ICON_PLAY_SM;
+        btn.title = 'Play clip';
+        btn.addEventListener('click', () => openPreview(film.previewUrl, film.trackName));
+        footer.appendChild(btn);
+      } else {
+        const span = document.createElement('span');
+        span.className = 'no-preview';
+        span.textContent = 'No clip';
+        footer.appendChild(span);
+      }
+
+      resultsGrid.appendChild(card);
+    });
+
+    resultsSection.classList.add('active');
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.querySelectorAll('.genre-fill').forEach(el => {
+          el.style.width = el.dataset.target + '%';
+        });
+      }, 60);
+    });
+  }
+
+  // ---------- Main search flow ----------
+  async function runSearch() {
+    const query = searchInput.value.trim();
+    if (!query) return;
+
+    errorBox.classList.remove('active');
+    seedSection.classList.remove('active');
+    resultsSection.classList.remove('active');
+    statusLine.classList.add('active');
+    statusText.textContent = 'Locating requested reel…';
+    closePreview();
+
+    try {
+      const seedResults = await itunesSearch(query, 'movie', 1);
+      if (seedResults.length === 0) {
+        throw new Error('No film found for "' + query + '". Try a more specific title.');
+      }
+      const seed = seedResults[0];
+      renderSeed(seed);
+
+      statusText.textContent = 'Pulling related reels from the shelf…';
+
+      const genreTerm = seed.primaryGenreName || seed.trackName;
+      const [byGenre, byDirector] = await Promise.all([
+        itunesSearch(genreTerm, 'movie', 40).catch(() => []),
+        seed.artistName ? itunesSearch(seed.artistName, 'movie', 15).catch(() => []) : Promise.resolve([]),
+      ]);
+
+      statusText.textContent = 'Stamping similarity scores…';
+
+      const pool = [...byGenre, ...byDirector];
+      const seen = new Set([seed.trackId]);
+      const deduped = [];
+      for (const f of pool) {
+        if (!f.trackId || seen.has(f.trackId)) continue;
+        if (!f.trackName) continue;
+        seen.add(f.trackId);
+        deduped.push(f);
+      }
+
+      renderResults(seed, deduped.slice(0, 24));
+
+    } catch (err) {
+      errorBox.textContent = err.message || 'Something went wrong while searching the catalog.';
+      errorBox.classList.add('active');
+    } finally {
+      statusLine.classList.remove('active');
+    }
+  }
+
+  searchBtn.addEventListener('click', runSearch);
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') runSearch();
+  });
+
+  window.addEventListener('DOMContentLoaded', () => {
+    searchInput.focus();
+  });
+})();
+</script>
+
+</body>
+</html>
