@@ -37,3 +37,7 @@ what i learn :
     9 ---->
 
             i heve noooooo ideassss
+    10 ---->
+
+
+            is that worth it>???
