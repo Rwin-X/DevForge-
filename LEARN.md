@@ -43,4 +43,7 @@ what i learn :
             is that worth it>???
     11 ----> create more and more and more 
 
+
+    !! 12 : social eng may be harmfull 
+
             ideas will find you
