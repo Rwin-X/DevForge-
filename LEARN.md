@@ -41,3 +41,6 @@ what i learn :
 
 
             is that worth it>???
+    11 ----> create more and more and more 
+
+            ideas will find you
