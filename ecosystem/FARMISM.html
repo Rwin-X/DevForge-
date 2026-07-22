@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FARMSIM :: agrarian ecosystem simulation</title>
+<style>
+  :root{
+    --bg: #05080a;
+    --bg2: #0a1210;
+    --grid: #0e1a16;
+    --phosphor: #4dff9e;
+    --phosphor-dim: #1d5c3f;
+    --cyan: #4de3ff;
+    --amber: #ffb74d;
+    --blood: #ff5d5d;
+    --text: #b9f5d3;
+    --text-dim: #5b8a72;
+    --panel-bg: rgba(6, 14, 11, 0.88);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background: var(--bg);
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    color: var(--text);
+  }
+  #stage{
+    position:relative;
+    width:100vw; height:100vh;
+  }
+  canvas{
+    position:absolute; top:0; left:0;
+    display:block;
+  }
+  #scanlines{
+    position:absolute; inset:0;
+    pointer-events:none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 1px,
+      rgba(0,0,0,0.06) 2px,
+      rgba(0,0,0,0.06) 3px
+    );
+    mix-blend-mode: multiply;
+    z-index: 50;
+  }
+  #vignette{
+    position:absolute; inset:0;
+    pointer-events:none;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%);
+    z-index: 49;
+  }
+
+  /* ---- HUD ---- */
+  .panel{
+    position:absolute;
+    background: var(--panel-bg);
+    border: 1px solid var(--phosphor-dim);
+    box-shadow: 0 0 18px rgba(77,255,158,0.05), inset 0 0 30px rgba(77,255,158,0.02);
+    backdrop-filter: blur(2px);
+    z-index: 40;
+  }
+  .panel-title{
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--phosphor);
+    text-transform: uppercase;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--phosphor-dim);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel-title .dot{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--phosphor);
+    box-shadow: 0 0 6px var(--phosphor);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:0.3;}
+  }
+
+  #hud-top{
+    top: 14px; left: 14px;
+    width: 260px;
+  }
+  #hud-top .body{ padding: 10px; }
+  .stat-row{
+    display:flex; justify-content:space-between;
+    font-size: 11px;
+    padding: 3px 0;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+  }
+  .stat-row span.val{
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-row.prey span.val{ color: var(--phosphor); }
+  .stat-row.pred span.val{ color: var(--blood); }
+  .stat-row.food span.val{ color: var(--amber); }
+  .bar-track{
+    width:100%; height:4px;
+    background: rgba(255,255,255,0.06);
+    margin-top:2px;
+    position:relative;
+    overflow:hidden;
+  }
+  .bar-fill{ height:100%; }
+
+  #hud-legend{
+    bottom: 14px; left: 14px;
+    width: 230px;
+  }
+  #hud-legend .body{ padding: 10px; font-size: 10px; line-height: 1.9; color: var(--text-dim); }
+  .legend-item{ display:flex; align-items:center; gap:8px; }
+  .legend-swatch{ width:9px; height:9px; flex-shrink:0; }
+
+  #hud-controls{
+    top: 14px; right: 14px;
+    width: 220px;
+  }
+  #hud-controls .body{ padding: 10px 10px 12px; }
+  .ctrl-row{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size: 10px; color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .ctrl-row label{ letter-spacing:0.04em; }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width: 110px; height: 3px;
+    background: var(--phosphor-dim);
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:10px; height:10px;
+    background: var(--phosphor);
+    box-shadow: 0 0 6px var(--phosphor);
+    cursor:pointer;
+    border-radius:1px;
+  }
+  button.termbtn{
+    width:100%;
+    background: transparent;
+    border: 1px solid var(--phosphor-dim);
+    color: var(--phosphor);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 8px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all 0.15s;
+  }
+  button.termbtn:hover{
+    background: rgba(77,255,158,0.08);
+    box-shadow: 0 0 10px rgba(77,255,158,0.15);
+  }
+  button.termbtn:active{ transform: translateY(1px); }
+
+  #hud-log{
+    bottom: 14px; right: 14px;
+    width: 320px;
+    max-height: 190px;
+  }
+  #hud-log .body{
+    padding: 8px 10px;
+    font-size: 10px;
+    line-height: 1.75;
+    max-height: 150px;
+    overflow: hidden;
+    color: var(--text-dim);
+  }
+  #hud-log .body div{ white-space: nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .log-birth{ color: var(--phosphor); }
+  .log-death{ color: var(--blood); }
+  .log-hunt{ color: var(--amber); }
+
+  #boot{
+    position:absolute; inset:0;
+    background: var(--bg);
+    z-index: 100;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column;
+    font-size: 12px;
+    color: var(--phosphor);
+    letter-spacing: 0.15em;
+  }
+  #boot .line{ opacity:0; animation: appear 0.15s forwards; margin-bottom:6px; }
+  #boot .cursor{
+    display:inline-block; width:7px; height:13px;
+    background: var(--phosphor);
+    animation: blink 1s step-end infinite;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+  @keyframes appear{ to{opacity:1;} }
+  @keyframes blink{ 50%{opacity:0;} }
+
+  ::selection{ background: var(--phosphor-dim); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="world"></canvas>
+  <div id="scanlines"></div>
+  <div id="vignette"></div>
+
+  <div id="boot">
+    <div class="line" style="animation-delay:0s">FARMSIM v2.1 — AGRARIAN ECOSYSTEM KERNEL</div>
+    <div class="line" style="animation-delay:0.15s">initializing terrain grid... OK</div>
+    <div class="line" style="animation-delay:0.3s">seeding forage nodes... OK</div>
+    <div class="line" style="animation-delay:0.45s">spawning prey population... OK</div>
+    <div class="line" style="animation-delay:0.6s">spawning predator population... OK</div>
+    <div class="line" style="animation-delay:0.8s">starting simulation loop<span class="cursor"></span></div>
+  </div>
+
+  <div class="panel" id="hud-top">
+    <div class="panel-title"><span>POPULATION.SYS</span><span class="dot"></span></div>
+    <div class="body">
+      <div class="stat-row prey"><span>prey (grazers)</span><span class="val" id="s-prey">0</span></div>
+      <div class="bar-track"><div class="bar-fill" id="bar-prey" style="background:var(--phosphor); width:0%;"></div></div>
+      <div class="stat-row pred"><span>predators</span><span class="val" id="s-pred">0</span></div>
+      <div class="bar-track"><div class="bar-fill" id="bar-pred" style="background:var(--blood); width:0%;"></div></div>
+      <div class="stat-row food"><span>forage nodes</span><span class="val" id="s-food">0</span></div>
+      <div class="bar-track"><div class="bar-fill" id="bar-food" style="background:var(--amber); width:0%;"></div></div>
+      <div style="height:1px; background:var(--phosphor-dim); margin:8px 0;"></div>
+      <div class="stat-row"><span>tick</span><span class="val" id="s-tick">0</span></div>
+      <div class="stat-row"><span>births total</span><span class="val" id="s-births">0</span></div>
+      <div class="stat-row"><span>kills total</span><span class="val" id="s-kills">0</span></div>
+      <div class="stat-row"><span>fps</span><span class="val" id="s-fps">0</span></div>
+    </div>
+  </div>
+
+  <div class="panel" id="hud-legend">
+    <div class="panel-title"><span>LEGEND</span></div>
+    <div class="body">
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--phosphor); box-shadow:0 0 4px var(--phosphor);"></span> prey — grazes, flees, breeds</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--blood); box-shadow:0 0 4px var(--blood);"></span> predator — hunts, stalks, rests</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--amber); border-radius:50%;"></span> forage node — regrows over time</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:var(--cyan); border-radius:50%;"></span> predator awareness radius</div>
+    </div>
+  </div>
+
+  <div class="panel" id="hud-controls">
+    <div class="panel-title"><span>CONTROL.SYS</span></div>
+    <div class="body">
+      <div class="ctrl-row"><label>sim speed</label><input type="range" id="ctrl-speed" min="0.25" max="3" step="0.25" value="1"></div>
+      <div class="ctrl-row"><label>prey spawn rate</label><input type="range" id="ctrl-preyrate" min="0" max="2" step="0.1" value="1"></div>
+      <div class="ctrl-row"><label>predator count</label><input type="range" id="ctrl-predcap" min="1" max="12" step="1" value="5"></div>
+      <button class="termbtn" id="btn-food">+ scatter forage</button>
+      <button class="termbtn" id="btn-reset">reset simulation</button>
+      <button class="termbtn" id="btn-pause">pause</button>
+    </div>
+  </div>
+
+  <div class="panel" id="hud-log">
+    <div class="panel-title"><span>EVENT.LOG</span></div>
+    <div class="body" id="log-body"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ============================================================
+// SETUP
+// ============================================================
+const canvas = document.getElementById('world');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+setTimeout(()=>{ document.getElementById('boot').style.display='none'; }, 1400);
+
+// ============================================================
+// UTIL
+// ============================================================
+function rand(a,b){ return a + Math.random()*(b-a); }
+function randi(a,b){ return Math.floor(rand(a,b+1)); }
+function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+function dist(ax,ay,bx,by){ return Math.sqrt(dist2(ax,ay,bx,by)); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function angleLerp(a,b,t){
+  let diff = ((b-a+Math.PI*3) % (Math.PI*2)) - Math.PI;
+  return a + diff*t;
+}
+
+let logEl = document.getElementById('log-body');
+let logLines = [];
+function log(msg, cls){
+  logLines.unshift(`<div class="${cls||''}">${msg}</div>`);
+  if(logLines.length > 14) logLines.pop();
+  logEl.innerHTML = logLines.join('');
+}
+
+// ============================================================
+// WORLD STATE
+// ============================================================
+let tick = 0;
+let totalBirths = 0;
+let totalKills = 0;
+let paused = false;
+let speedMult = 1;
+let preySpawnRate = 1;
+let predatorCap = 5;
+
+const forageNodes = [];
+const preyList = [];
+const predList = [];
+const particles = []; // death/birth bursts
+
+const MAX_FORAGE = 46;
+const FOOD_GROW_TICKS = 420;
+
+// ---- grid field for subtle ground texture (procedural, no images) ----
+function initForage(n){
+  forageNodes.length = 0;
+  for(let i=0;i<n;i++){
+    forageNodes.push({
+      x: rand(40, W-40),
+      y: rand(40, H-40),
+      r: rand(3,5),
+      amount: rand(0.6,1),
+      regrow: 0,
+      alive: true
+    });
+  }
+}
+
+// ============================================================
+// PREY  ("grazer")
+// ============================================================
+class Prey{
+  constructor(x,y){
+    this.x = x; this.y = y;
+    this.heading = rand(0, Math.PI*2);
+    this.speed = rand(0.5, 0.8);
+    this.maxSpeed = rand(1.0, 1.4);
+    this.fleeSpeed = rand(2.2, 2.8);
+    this.hunger = rand(0.3, 0.6); // 0 = full, 1 = starving
+    this.energy = 1;
+    this.age = 0;
+    this.maxAge = randi(2600, 4200);
+    this.breedCooldown = randi(200,400);
+    this.legPhase = rand(0,Math.PI*2);
+    this.size = rand(4.2, 5.4);
+    this.target = null;
+    this.fleeingFrom = null;
+    this.alive = true;
+    this.wobble = rand(0,10);
+    this.hue = rand(-8,8);
+  }
+
+  nearestThreat(){
+    let best = null, bestD = 130*130;
+    for(const p of predList){
+      const d = dist2(this.x,this.y,p.x,p.y);
+      if(d < bestD){ bestD = d; best = p; }
+    }
+    return best;
+  }
+
+  nearestFood(){
+    let best=null, bestD = 260*260;
+    for(const f of forageNodes){
+      if(!f.alive) continue;
+      const d = dist2(this.x,this.y,f.x,f.y);
+      if(d<bestD){ bestD=d; best=f; }
+    }
+    return best;
+  }
+
+  update(dt){
+    this.age += dt;
+    if(this.age > this.maxAge){ this.die('old age'); return; }
+
+    this.hunger = clamp(this.hunger + dt*0.00028, 0, 1);
+    if(this.hunger >= 1){ this.die('starvation'); return; }
+
+    const threat = this.nearestThreat();
+    let desiredHeading = this.heading;
+    let desiredSpeed = this.speed;
+
+    if(threat){
+      // flee directly away
+      const a = Math.atan2(this.y-threat.y, this.x-threat.x);
+      desiredHeading = a;
+      desiredSpeed = this.fleeSpeed;
+      this.fleeingFrom = threat;
+    } else {
+      this.fleeingFrom = null;
+      const food = this.nearestFood();
+      if(food && this.hunger > 0.15){
+        const d = dist(this.x,this.y,food.x,food.y);
+        if(d < 6){
+          // eat
+          const bite = Math.min(food.amount, 0.02);
+          food.amount -= bite;
+          this.hunger = clamp(this.hunger - bite*1.4, 0, 1);
+          if(food.amount <= 0.02){
+            food.alive = false;
+            food.regrow = FOOD_GROW_TICKS;
+          }
+          desiredSpeed = 0.15;
+        } else {
+          desiredHeading = Math.atan2(food.y-this.y, food.x-this.x);
+          desiredSpeed = this.maxSpeed*0.75;
+        }
+      } else {
+        // idle wander
+        this.wobble += dt*0.02;
+        desiredHeading = this.heading + Math.sin(this.wobble)*0.05;
+        desiredSpeed = this.speed*0.5;
+      }
+    }
+
+    this.heading = angleLerp(this.heading, desiredHeading, threat? 0.28: 0.06);
+    const curSpeed = lerp(this._lastSpeed||0, desiredSpeed, 0.15);
+    this._lastSpeed = curSpeed;
+
+    this.x += Math.cos(this.heading)*curSpeed*dt*0.12;
+    this.y += Math.sin(this.heading)*curSpeed*dt*0.12;
+
+    // bounds - soft steer back in
+    const margin = 30;
+    if(this.x<margin) this.heading = angleLerp(this.heading, 0, 0.1);
+    if(this.x>W-margin) this.heading = angleLerp(this.heading, Math.PI, 0.1);
+    if(this.y<margin) this.heading = angleLerp(this.heading, Math.PI/2, 0.1);
+    if(this.y>H-margin) this.heading = angleLerp(this.heading, -Math.PI/2, 0.1);
+    this.x = clamp(this.x, 4, W-4);
+    this.y = clamp(this.y, 4, H-4);
+
+    this.legPhase += curSpeed*dt*0.02;
+
+    // breeding
+    this.breedCooldown -= dt;
+    if(this.breedCooldown<=0 && this.hunger<0.4 && !threat && preyList.length < 90){
+      for(const other of preyList){
+        if(other===this || !other.alive) continue;
+        if(other.breedCooldown>0) continue;
+        if(dist2(this.x,this.y,other.x,other.y) < 22*22){
+          this.breed(other);
+          break;
+        }
+      }
+    }
+  }
+
+  breed(mate){
+    this.breedCooldown = randi(500,800);
+    mate.breedCooldown = randi(500,800);
+    const nx = clamp((this.x+mate.x)/2 + rand(-8,8), 10, W-10);
+    const ny = clamp((this.y+mate.y)/2 + rand(-8,8), 10, H-10);
+    const baby = new Prey(nx, ny);
+    baby.size = rand(2.4, 3.0);
+    baby.maxAge = randi(2200,3800);
+    preyList.push(baby);
+    totalBirths++;
+    spawnBurst(nx,ny,'#4dff9e');
+    log(`prey born at (${nx|0},${ny|0})`, 'log-birth');
+  }
+
+  die(cause){
+    this.alive = false;
+    spawnBurst(this.x,this.y, cause==='hunted' ? '#ff5d5d' : '#5b8a72');
+  }
+
+  draw(ctx){
+    const s = this.size;
+    const fleeing = !!this.fleeingFrom;
+    const legSwing = Math.sin(this.legPhase)*3.2;
+    const legSwing2 = Math.sin(this.legPhase+Math.PI)*3.2;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.heading);
+
+    const glow = fleeing ? '#ff9d9d' : '#4dff9e';
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = fleeing ? 10 : 5;
+
+    // legs
+    ctx.strokeStyle = 'rgba(77,255,158,0.55)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-s*0.3, -s*0.5); ctx.lineTo(-s*0.3+legSwing*0.4, -s*0.9);
+    ctx.moveTo(s*0.3, -s*0.5); ctx.lineTo(s*0.3+legSwing2*0.4, -s*0.9);
+    ctx.moveTo(-s*0.3, s*0.5); ctx.lineTo(-s*0.3+legSwing2*0.4, s*0.9);
+    ctx.moveTo(s*0.3, s*0.5); ctx.lineTo(s*0.3+legSwing*0.4, s*0.9);
+    ctx.stroke();
+
+    // body (oval)
+    ctx.fillStyle = fleeing ? '#ffcdcd' : '#bdffdf';
+    ctx.beginPath();
+    ctx.ellipse(0,0, s*1.5, s*0.85, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // head
+    ctx.beginPath();
+    ctx.ellipse(s*1.5, 0, s*0.55, s*0.5, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // hunger indicator - dim ring if hungry
+    if(this.hunger > 0.6){
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255,183,77,0.7)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(0,0, s*2, 0, Math.PI*2*this.hunger);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// PREDATOR ("hunter")
+// ============================================================
+class Predator{
+  constructor(x,y){
+    this.x=x; this.y=y;
+    this.heading = rand(0,Math.PI*2);
+    this.state = 'patrol'; // patrol, stalk, chase, eat, rest
+    this.hunger = rand(0.3,0.5);
+    this.age = 0;
+    this.maxAge = randi(4200,6200);
+    this.awareness = 150;
+    this.chaseSpeed = rand(2.6,3.2);
+    this.patrolSpeed = rand(0.6,0.9);
+    this.legPhase = rand(0,Math.PI*2);
+    this.size = rand(6.5,8);
+    this.target = null;
+    this.restTimer = 0;
+    this.breedCooldown = randi(700,1100);
+    this.alive = true;
+    this._lastSpeed = 0;
+  }
+
+  findPrey(){
+    let best=null, bestD=this.awareness*this.awareness;
+    for(const p of preyList){
+      if(!p.alive) continue;
+      const d = dist2(this.x,this.y,p.x,p.y);
+      if(d<bestD){ bestD=d; best=p; }
+    }
+    return best;
+  }
+
+  update(dt){
+    this.age += dt;
+    if(this.age > this.maxAge){ this.die(); return; }
+
+    this.hunger = clamp(this.hunger + dt*0.00016, 0, 1);
+    if(this.hunger >= 1){ this.die(); return; }
+
+    let desiredHeading = this.heading;
+    let desiredSpeed = this.patrolSpeed;
+
+    if(this.state === 'rest'){
+      this.restTimer -= dt;
+      desiredSpeed = 0.05;
+      if(this.restTimer<=0) this.state='patrol';
+    } else {
+      // acquire / keep target
+      if(!this.target || !this.target.alive){
+        this.target = this.hunger>0.25 ? this.findPrey() : null;
+      }
+      if(this.target && this.target.alive){
+        const d = dist(this.x,this.y,this.target.x,this.target.y);
+        if(d > this.awareness*1.3){
+          this.target = null; // lost it
+        } else if(d < 7){
+          // catch!
+          this.target.die('hunted');
+          this.hunger = clamp(this.hunger - 0.55, 0, 1);
+          totalKills++;
+          spawnBurst(this.target.x, this.target.y, '#ff5d5d');
+          log(`predator caught prey at (${this.target.x|0},${this.target.y|0})`, 'log-hunt');
+          this.target = null;
+          this.state = 'rest';
+          this.restTimer = randi(120,260);
+        } else {
+          desiredHeading = Math.atan2(this.target.y-this.y, this.target.x-this.x);
+          desiredSpeed = d < 60 ? this.chaseSpeed : this.chaseSpeed*0.8;
+          this.state = d<60 ? 'chase':'stalk';
+        }
+      } else {
+        this.state = 'patrol';
+        this._wobble = (this._wobble||rand(0,10)) + dt*0.015;
+        desiredHeading = this.heading + Math.sin(this._wobble)*0.04;
+        desiredSpeed = this.patrolSpeed;
+      }
+    }
+
+    const turnRate = this.state==='chase' ? 0.22 : 0.06;
+    this.heading = angleLerp(this.heading, desiredHeading, turnRate);
+    const curSpeed = lerp(this._lastSpeed, desiredSpeed, 0.12);
+    this._lastSpeed = curSpeed;
+
+    this.x += Math.cos(this.heading)*curSpeed*dt*0.12;
+    this.y += Math.sin(this.heading)*curSpeed*dt*0.12;
+
+    const margin = 30;
+    if(this.x<margin) this.heading = angleLerp(this.heading, 0, 0.08);
+    if(this.x>W-margin) this.heading = angleLerp(this.heading, Math.PI, 0.08);
+    if(this.y<margin) this.heading = angleLerp(this.heading, Math.PI/2, 0.08);
+    if(this.y>H-margin) this.heading = angleLerp(this.heading, -Math.PI/2, 0.08);
+    this.x = clamp(this.x,4,W-4);
+    this.y = clamp(this.y,4,H-4);
+
+    this.legPhase += curSpeed*dt*0.018;
+
+    // breeding - rarer, needs low hunger
+    this.breedCooldown -= dt;
+    if(this.breedCooldown<=0 && this.hunger<0.35 && predList.length < predatorCap+2){
+      for(const other of predList){
+        if(other===this || !other.alive) continue;
+        if(other.breedCooldown>0) continue;
+        if(dist2(this.x,this.y,other.x,other.y) < 30*30){
+          this.breed(other);
+          break;
+        }
+      }
+    }
+  }
+
+  breed(mate){
+    this.breedCooldown = randi(1400,2000);
+    mate.breedCooldown = randi(1400,2000);
+    const nx = clamp((this.x+mate.x)/2+rand(-10,10),10,W-10);
+    const ny = clamp((this.y+mate.y)/2+rand(-10,10),10,H-10);
+    const baby = new Predator(nx,ny);
+    baby.size = rand(3.5,4.5);
+    predList.push(baby);
+    totalBirths++;
+    spawnBurst(nx,ny,'#ff5d5d');
+    log(`predator born at (${nx|0},${ny|0})`, 'log-birth');
+  }
+
+  die(){
+    this.alive = false;
+    spawnBurst(this.x,this.y,'#5b3030');
+    log(`predator died — starvation/age`, 'log-death');
+  }
+
+  draw(ctx){
+    const s = this.size;
+    const hunting = this.state==='chase' || this.state==='stalk';
+
+    // awareness radius (subtle, only when idle patrol to reduce clutter)
+    if(this.state==='patrol'){
+      ctx.strokeStyle = 'rgba(77,227,255,0.05)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(this.x,this.y,this.awareness,0,Math.PI*2);
+      ctx.stroke();
+    }
+
+    const legSwing = Math.sin(this.legPhase)*4.2;
+    const legSwing2 = Math.sin(this.legPhase+Math.PI)*4.2;
+
+    ctx.save();
+    ctx.translate(this.x,this.y);
+    ctx.rotate(this.heading);
+
+    ctx.shadowColor = hunting ? '#ff5d5d' : '#ff8c8c';
+    ctx.shadowBlur = hunting ? 12 : 5;
+
+    // legs
+    ctx.strokeStyle = 'rgba(255,93,93,0.6)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-s*0.35,-s*0.6); ctx.lineTo(-s*0.35+legSwing*0.4,-s*1.15);
+    ctx.moveTo(s*0.1,-s*0.6); ctx.lineTo(s*0.1+legSwing2*0.4,-s*1.15);
+    ctx.moveTo(-s*0.35,s*0.6); ctx.lineTo(-s*0.35+legSwing2*0.4,s*1.15);
+    ctx.moveTo(s*0.1,s*0.6); ctx.lineTo(s*0.1+legSwing*0.4,s*1.15);
+    ctx.stroke();
+
+    // body - elongated, angular for predator silhouette
+    ctx.fillStyle = hunting ? '#ffb3b3' : '#ff8080';
+    ctx.beginPath();
+    ctx.moveTo(s*1.9, 0);
+    ctx.lineTo(s*0.4, -s*0.75);
+    ctx.lineTo(-s*1.6, -s*0.5);
+    ctx.lineTo(-s*1.9, 0);
+    ctx.lineTo(-s*1.6, s*0.5);
+    ctx.lineTo(s*0.4, s*0.75);
+    ctx.closePath();
+    ctx.fill();
+
+    // eyes glint
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff2b3';
+    ctx.beginPath();
+    ctx.arc(s*1.5,-s*0.15, s*0.14, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// PARTICLES (birth/death bursts)
+// ============================================================
+function spawnBurst(x,y,color){
+  for(let i=0;i<8;i++){
+    particles.push({
+      x,y,
+      vx: rand(-1,1), vy: rand(-1,1),
+      life: 30, maxLife: 30,
+      color
+    });
+  }
+}
+
+// ============================================================
+// SPAWN INITIAL
+// ============================================================
+function initSim(){
+  tick=0; totalBirths=0; totalKills=0;
+  preyList.length=0; predList.length=0; particles.length=0;
+  logLines = []; logEl.innerHTML='';
+  initForage(MAX_FORAGE);
+  for(let i=0;i<26;i++) preyList.push(new Prey(rand(50,W-50), rand(50,H-50)));
+  for(let i=0;i<5;i++) predList.push(new Predator(rand(50,W-50), rand(50,H-50)));
+  log('simulation initialized', '');
+}
+initSim();
+
+// ============================================================
+// DRAW GROUND
+// ============================================================
+let groundDots = [];
+function initGround(){
+  groundDots = [];
+  const cell = 46;
+  for(let x=0;x<W;x+=cell){
+    for(let y=0;y<H;y+=cell){
+      groundDots.push({x: x+rand(-8,8), y: y+rand(-8,8), r: rand(0.4,1)});
+    }
+  }
+}
+initGround();
+window.addEventListener('resize', ()=>{ initGround(); });
+
+function drawGround(){
+  ctx.fillStyle = '#05080a';
+  ctx.fillRect(0,0,W,H);
+
+  // subtle radial vignette glow center
+  const grad = ctx.createRadialGradient(W/2,H/2,0, W/2,H/2, Math.max(W,H)*0.7);
+  grad.addColorStop(0,'rgba(13,30,24,0.5)');
+  grad.addColorStop(1,'rgba(5,8,10,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  ctx.fillStyle = 'rgba(77,255,158,0.06)';
+  for(const d of groundDots){
+    ctx.beginPath();
+    ctx.arc(d.x,d.y,d.r,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawForage(){
+  for(const f of forageNodes){
+    if(f.alive){
+      ctx.save();
+      ctx.shadowColor = '#ffb74d';
+      ctx.shadowBlur = 6*f.amount;
+      ctx.fillStyle = `rgba(255,183,77,${0.35+0.5*f.amount})`;
+      ctx.beginPath();
+      ctx.arc(f.x,f.y, f.r*(0.5+f.amount*0.6), 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.x+=p.vx; p.y+=p.vy;
+    p.life--;
+    if(p.life<=0){ particles.splice(i,1); continue; }
+    const a = p.life/p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = a*0.8;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,1.6,0,Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ============================================================
+// UI WIRING
+// ============================================================
+document.getElementById('ctrl-speed').addEventListener('input', e=>{
+  speedMult = parseFloat(e.target.value);
+});
+document.getElementById('ctrl-preyrate').addEventListener('input', e=>{
+  preySpawnRate = parseFloat(e.target.value);
+});
+document.getElementById('ctrl-predcap').addEventListener('input', e=>{
+  predatorCap = parseInt(e.target.value);
+});
+document.getElementById('btn-food').addEventListener('click', ()=>{
+  for(let i=0;i<8;i++){
+    forageNodes.push({x:rand(30,W-30), y:rand(30,H-30), r:rand(3,5), amount:1, regrow:0, alive:true});
+  }
+  log('manual forage scattered', '');
+});
+document.getElementById('btn-reset').addEventListener('click', ()=>{
+  initSim();
+});
+const pauseBtn = document.getElementById('btn-pause');
+pauseBtn.addEventListener('click', ()=>{
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'resume' : 'pause';
+});
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+let lastTime = performance.now();
+let fpsAccum = 0, fpsFrames = 0, fpsDisplay = 0;
+let preySpawnTimer = 0;
+
+function frame(now){
+  requestAnimationFrame(frame);
+  const rawDt = Math.min(now - lastTime, 50);
+  lastTime = now;
+
+  fpsAccum += rawDt; fpsFrames++;
+  if(fpsAccum > 500){
+    fpsDisplay = Math.round(fpsFrames*1000/fpsAccum);
+    fpsAccum=0; fpsFrames=0;
+  }
+
+  if(!paused){
+    const dt = rawDt * speedMult / 16.67; // normalize to ~1 at 60fps
+    tick += dt;
+
+    // forage regrow
+    for(const f of forageNodes){
+      if(!f.alive){
+        f.regrow -= dt;
+        if(f.regrow<=0){ f.alive=true; f.amount=1; }
+      }
+    }
+    if(forageNodes.length < MAX_FORAGE && Math.random()<0.004*dt){
+      forageNodes.push({x:rand(30,W-30),y:rand(30,H-30),r:rand(3,5),amount:1,regrow:0,alive:true});
+    }
+
+    // ambient prey spawn to keep ecosystem alive
+    preySpawnTimer -= dt;
+    if(preySpawnTimer<=0 && preySpawnRate>0){
+      preySpawnTimer = 260/preySpawnRate;
+      if(preyList.filter(p=>p.alive).length < 4){
+        preyList.push(new Prey(rand(40,W-40), rand(40,H-40)));
+      }
+    }
+
+    for(const p of preyList) if(p.alive) p.update(dt);
+    for(const p of predList) if(p.alive) p.update(dt);
+
+    // cull dead
+    for(let i=preyList.length-1;i>=0;i--) if(!preyList[i].alive) preyList.splice(i,1);
+    for(let i=predList.length-1;i>=0;i--) if(!predList[i].alive) predList.splice(i,1);
+
+    // predator population ceiling enforcement (soft, via hunger only) —
+    // if empty, reseed a starter predator occasionally to avoid total collapse
+    if(predList.length===0 && Math.random()<0.001*dt){
+      predList.push(new Predator(rand(40,W-40), rand(40,H-40)));
+      log('a new predator has emerged', 'log-birth');
+    }
+  }
+
+  // ---- render ----
+  drawGround();
+  drawForage();
+
+  const allCreatures = [...preyList, ...predList];
+  allCreatures.sort((a,b)=>a.y-b.y);
+  for(const c of allCreatures) c.draw(ctx);
+
+  drawParticles();
+
+  // ---- HUD update ----
+  document.getElementById('s-prey').textContent = preyList.length;
+  document.getElementById('s-pred').textContent = predList.length;
+  document.getElementById('s-food').textContent = forageNodes.filter(f=>f.alive).length;
+  document.getElementById('s-tick').textContent = tick|0;
+  document.getElementById('s-births').textContent = totalBirths;
+  document.getElementById('s-kills').textContent = totalKills;
+  document.getElementById('s-fps').textContent = fpsDisplay;
+
+  document.getElementById('bar-prey').style.width = clamp(preyList.length/90*100,0,100)+'%';
+  document.getElementById('bar-pred').style.width = clamp(predList.length/(predatorCap+2)*100,0,100)+'%';
+  document.getElementById('bar-food').style.width = clamp(forageNodes.filter(f=>f.alive).length/MAX_FORAGE*100,0,100)+'%';
+}
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
