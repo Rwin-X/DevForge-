@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Personality Analyzer — Alice</title>
+<style>
+  :root {
+    --bg: #0D0F1A;
+    --surface: #161929;
+    --surface2: #1E2235;
+    --border: #2A2E45;
+    --accent: #00D4AA;
+    --accent2: #7B61FF;
+    --text: #E8EAF0;
+    --text-muted: #7A7F9A;
+    --radius: 12px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #0D0F1A 0%, #1a1030 50%, #0D0F1A 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 40px 0 30px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 300px;
+    background: radial-gradient(ellipse, rgba(0,212,170,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-badge {
+    display: inline-block;
+    background: rgba(0,212,170,0.1);
+    border: 1px solid rgba(0,212,170,0.3);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: clamp(24px, 5vw, 42px);
+    font-weight: 700;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .header-meta {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .exec-summary {
+    background: linear-gradient(135deg, var(--surface2), var(--surface));
+    border-left: 3px solid var(--accent);
+    padding: 20px 24px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-style: italic;
+    color: var(--text);
+    margin-bottom: 16px;
+    font-size: 16px;
+  }
+  .body-text { color: var(--text-muted); line-height: 1.8; }
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: var(--mono);
+    line-height: 1.2;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  /* Personality scores */
+  .scores-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .score-item { margin-bottom: 4px; }
+  .score-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .score-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .score-value { font-size: 22px; font-weight: 700; font-family: var(--mono); }
+  .score-bar-bg { background: var(--border); border-radius: 4px; height: 6px; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+  .score-level { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  /* Mini bars */
+  .mini-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .mini-label { font-size: 12px; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+  .mini-bar-bg { flex: 1; background: var(--border); border-radius: 3px; height: 5px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; border-radius: 3px; }
+  .mini-val { font-size: 12px; color: var(--text-muted); width: 28px; text-align: right; font-family: var(--mono); }
+  /* Style sub-sections */
+  .style-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+  .style-card { background: var(--surface2); border-radius: 10px; padding: 20px; }
+  .style-card-title { font-size: 12px; color: var(--accent); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }
+  /* Topics */
+  .topics-wrap { display: flex; flex-wrap: wrap; gap: 10px; }
+  .topic-chip {
+    border: 1px solid;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .topic-score { opacity: 0.7; font-size: 11px; }
+  /* Insights */
+  .insight-list { list-style: none; }
+  .insight-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-muted); }
+  .insight-item:last-child { border-bottom: none; }
+  .strength-item { color: #7EFFA0; }
+  .weakness-item { color: #FFB86C; }
+  /* Two columns for strengths/weaknesses */
+  .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 600px) { .insights-grid { grid-template-columns: 1fr; } }
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 20px;
+  }
+  .disclaimer {
+    background: rgba(255,184,108,0.05);
+    border: 1px solid rgba(255,184,108,0.2);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    font-size: 13px;
+    color: #FFB86C;
+    line-height: 1.6;
+  }
+  .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(123,97,255,0.1);
+    border: 1px solid rgba(123,97,255,0.3);
+    color: var(--accent2);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-badge">Personality Report</div>
+  <h1>🧠 Alice</h1>
+  <div class="header-meta">
+    Generated 2026-06-18 19:51:45 &nbsp;·&nbsp; Generic &nbsp;·&nbsp;
+    <span class="ai-badge" style="color:#7A7F9A;border-color:rgba(122,127,154,0.3)">Rule-Based</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Executive Summary -->
+  <div class="section">
+    <div class="section-title">📋 Executive Summary</div>
+    <div class="exec-summary">Alice may be characterized by intellectual curiosity and a desire to understand the world.</div>
+    <div class="body-text">Alice's messages may indicate intellectual curiosity and a desire to understand the world. Their communication style possibly reflects a tendency toward concise, direct communication. Based on language patterns, this person appears to prioritize interpersonal connection.</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="section">
+    <div class="section-title">📊 Statistics</div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">25</div>
+        <div class="stat-label">Messages</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">11</div>
+        <div class="stat-label">Avg Words / Msg</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">12</div>
+        <div class="stat-label">Questions Asked</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Emojis Used</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">287</div>
+        <div class="stat-label">Total Words</div>
+      </div>
+      
+      
+    </div>
+  </div>
+
+  <!-- Personality Scores -->
+  <div class="section">
+    <div class="section-title">🎯 Personality Scores <span style="font-size:11px;color:var(--text-muted);text-transform:none;letter-spacing:0;font-weight:400">(0–100, probabilistic)</span></div>
+    <div class="scores-grid">
+      
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Curiosity</span>
+            <span class="score-value" style="color:#00D4AA">87</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:87.0%;background:#00D4AA"></div>
+          </div>
+          <div class="score-level">Very High</div>
+        </div>
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Confidence</span>
+            <span class="score-value" style="color:#FF6B6B">30</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:30.3%;background:#FF6B6B"></div>
+          </div>
+          <div class="score-level">Low</div>
+        </div>
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Friendliness</span>
+            <span class="score-value" style="color:#FF6B6B">33</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:33.1%;background:#FF6B6B"></div>
+          </div>
+          <div class="score-level">Low</div>
+        </div>
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Analytical Thinking</span>
+            <span class="score-value" style="color:#FF6B6B">24</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:24.5%;background:#FF6B6B"></div>
+          </div>
+          <div class="score-level">Very Low</div>
+        </div>
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Creativity</span>
+            <span class="score-value" style="color:#FF6B6B">30</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:30.4%;background:#FF6B6B"></div>
+          </div>
+          <div class="score-level">Low</div>
+        </div>
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Emotional Expression</span>
+            <span class="score-value" style="color:#FF6B6B">24</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:24.0%;background:#FF6B6B"></div>
+          </div>
+          <div class="score-level">Very Low</div>
+        </div>
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Leadership</span>
+            <span class="score-value" style="color:#C0392B">10</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:10.4%;background:#C0392B"></div>
+          </div>
+          <div class="score-level">Very Low</div>
+        </div>
+        <div class="score-item">
+          <div class="score-header">
+            <span class="score-label">Social Engagement</span>
+            <span class="score-value" style="color:#FFE66D">42</span>
+          </div>
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:42.5%;background:#FFE66D"></div>
+          </div>
+          <div class="score-level">Low</div>
+        </div>
+    </div>
+  </div>
+
+  <!-- Style breakdown -->
+  <div class="section">
+    <div class="section-title">🔬 Detailed Analysis</div>
+    <div class="style-grid">
+      <div class="style-card">
+        <div class="style-card-title">💬 Communication Style</div>
+        
+        <div class="mini-bar-row">
+          <span class="mini-label">Formality</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:42.6829268292683%;background:#FFE66D"></div>
+          </div>
+          <span class="mini-val">43</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Friendliness</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:33.13588850174216%;background:#FF6B6B"></div>
+          </div>
+          <span class="mini-val">33</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Assertiveness</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:30.282055749128922%;background:#FF6B6B"></div>
+          </div>
+          <span class="mini-val">30</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Emotional Expr.</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:24.0%;background:#FF6B6B"></div>
+          </div>
+          <span class="mini-val">24</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Humor Usage</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:12.54355400696864%;background:#C0392B"></div>
+          </div>
+          <span class="mini-val">13</span>
+        </div>
+      </div>
+      <div class="style-card">
+        <div class="style-card-title">🧭 Behavior Indicators</div>
+        
+        <div class="mini-bar-row">
+          <span class="mini-label">Curiosity</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:87.0383275261324%;background:#00D4AA"></div>
+          </div>
+          <span class="mini-val">87</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Confidence</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:30.282055749128922%;background:#FF6B6B"></div>
+          </div>
+          <span class="mini-val">30</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Patience</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:67.8%;background:#4ECDC4"></div>
+          </div>
+          <span class="mini-val">68</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Leadership</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:10.443832752613242%;background:#C0392B"></div>
+          </div>
+          <span class="mini-val">10</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Independence</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:53.99203135888502%;background:#FFE66D"></div>
+          </div>
+          <span class="mini-val">54</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Openness</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:60.08710801393728%;background:#4ECDC4"></div>
+          </div>
+          <span class="mini-val">60</span>
+        </div>
+      </div>
+      <div class="style-card">
+        <div class="style-card-title">🧩 Thinking Style</div>
+        
+        <div class="mini-bar-row">
+          <span class="mini-label">Analytical</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:24.53707317073171%;background:#FF6B6B"></div>
+          </div>
+          <span class="mini-val">25</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Creative</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:30.383275261324037%;background:#FF6B6B"></div>
+          </div>
+          <span class="mini-val">30</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Practical</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:53.01808362369338%;background:#FFE66D"></div>
+          </div>
+          <span class="mini-val">53</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Strategic</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:17.490452961672474%;background:#C0392B"></div>
+          </div>
+          <span class="mini-val">17</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-label">Detail-Oriented</span>
+          <div class="mini-bar-bg">
+            <div class="mini-bar-fill" style="width:55.22648083623693%;background:#FFE66D"></div>
+          </div>
+          <span class="mini-val">55</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Communication Profile -->
+  <div class="section">
+    <div class="section-title">💬 Communication Profile</div>
+    <div class="body-text">Based on message patterns, Alice appears to communicate in a informal, matter-of-fact manner. Their messages possibly reflect a preference for casual conversation.</div>
+  </div>
+
+  <!-- Topics -->
+  
+  <div class="section">
+    <div class="section-title">📌 Detected Interests</div>
+    <div class="topics-wrap">
+        <div class="topic-chip" style="border-color:#4ECDC4;color:#4ECDC4">
+          Technology <span class="topic-score">63%</span>
+        </div>
+        <div class="topic-chip" style="border-color:#FFE66D;color:#FFE66D">
+          Science <span class="topic-score">52%</span>
+        </div>
+        <div class="topic-chip" style="border-color:#FF6B6B;color:#FF6B6B">
+          Finance <span class="topic-score">21%</span>
+        </div>
+        <div class="topic-chip" style="border-color:#FF6B6B;color:#FF6B6B">
+          Books <span class="topic-score">21%</span>
+        </div>
+        <div class="topic-chip" style="border-color:#C0392B;color:#C0392B">
+          Programming <span class="topic-score">10%</span>
+        </div></div>
+  </div>
+
+  <!-- Strengths & Weaknesses -->
+  <div class="section">
+    <div class="section-title">✅ Strengths &amp; ⚠️ Growth Areas</div>
+    <div class="insights-grid">
+      <div>
+        <div style="font-size:12px;color:#7EFFA0;font-weight:600;letter-spacing:1px;margin-bottom:12px">STRENGTHS</div>
+        <ul class="insight-list"><li class="insight-item strength-item">✅ Strong curiosity: their messages suggest intellectual curiosity and a desire to understand the world</li></ul>
+      </div>
+      <div>
+        <div style="font-size:12px;color:#FFB86C;font-weight:600;letter-spacing:1px;margin-bottom:12px">AREAS FOR GROWTH</div>
+        <ul class="insight-list"><li class="insight-item weakness-item">⚠️ May benefit from developing confidence – messages suggest limited expression of self-assurance in expressing their views</li><li class="insight-item weakness-item">⚠️ May benefit from developing friendliness – messages suggest limited expression of warmth and approachability</li><li class="insight-item weakness-item">⚠️ May benefit from developing analytical thinking – messages suggest limited expression of logical, structured thinking</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final Assessment -->
+  <div class="section">
+    <div class="section-title">🏁 Final Assessment</div>
+    <div class="body-text">Overall, the message patterns suggest Alice is a sociable and expressive communicator who possibly values depth and accuracy. Note: this assessment is based solely on chat patterns and should be interpreted with caution.</div>
+  </div>
+
+  <!-- Disclaimer -->
+  <div class="disclaimer">
+    ⚖️ <strong>Disclaimer:</strong> All scores and assessments are probabilistic estimates based on
+    language patterns in chat messages. They <em>may indicate</em> tendencies but should never be used
+    to make definitive conclusions about a person's character, intentions, or capabilities. This report
+    is for informational and reflective purposes only.
+  </div>
+
+</div>
+
+<div class="footer">
+  Generated by Chat Personality Analyzer v1.0.0 &nbsp;·&nbsp; All data processed locally &nbsp;·&nbsp; No conversation data stored
+</div>
+
+</body>
+</html>
