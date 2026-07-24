@@ -47,3 +47,10 @@ what i learn :
     !! 12 : social eng may be harmfull 
 
             ideas will find you
+    !!! ::------------------------------------------------------------------------------------------------------------------------------------:: !!!
+
+
+
+
+                        readme to chatanalize.md
+                        metastrip overview
