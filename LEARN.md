@@ -36,7 +36,12 @@ what i learn :
 
     9 ---->
 
-            i heve noooooo ideassss
+            idea 1 :
+                    deep social eng analyze 
+                    deep chat analize
+                    more se tools
+                    more gui sec tool
+                    more cli sec tool
     10 ---->
 
 
