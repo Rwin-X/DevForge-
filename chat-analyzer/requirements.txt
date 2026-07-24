@@ -1,0 +1,22 @@
+# Chat Personality Analyzer — Python dependencies
+# Install with:  pip install -r requirements.txt
+
+# ── Core NLP ──────────────────────────────────────────────────────────────────
+textblob>=0.18.0
+nltk>=3.8.1
+
+# ── ML (optional, for future sklearn clustering) ───────────────────────────────
+scikit-learn>=1.4.0
+
+# ── Data handling ─────────────────────────────────────────────────────────────
+pandas>=2.2.0
+
+# ── Terminal UI ───────────────────────────────────────────────────────────────
+rich>=13.7.0
+colorama>=0.4.6
+
+# ── AI integration (optional — only needed for AI-powered analysis) ───────────
+openai>=1.30.0
+
+# ── Type stubs (dev) ─────────────────────────────────────────────────────────
+# mypy>=1.9.0
