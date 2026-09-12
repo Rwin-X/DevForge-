@@ -1,0 +1,9 @@
+# PassVault data files - never commit your actual vault
+vault.dat
+vault.salt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
