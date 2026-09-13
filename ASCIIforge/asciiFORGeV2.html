@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII::FORGE</title>
+<style>
+  :root{
+    --bg: #050706;
+    --panel: #0a0e0c;
+    --border: #1c2e24;
+    --border-soft: #14211a;
+    --green: #4ee08a;
+    --green-dim: #245c3d;
+    --cyan: #4fd8e0;
+    --amber: #d9a55a;
+    --text: #c3d9cd;
+    --muted: #4d6357;
+    --faint: #2e4038;
+    --danger: #c65f5f;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(20,40,30,0.35), transparent 60%),
+      linear-gradient(180deg, #060907 0%, #040504 100%);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100%;
+    padding: 40px 16px 70px;
+    position:relative;
+  }
+
+  /* subtle vignette + scanlines, quieter than before */
+  .scanlines{
+    pointer-events:none;
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 3px,
+      rgba(0,0,0,0.05) 4px
+    );
+    mix-blend-mode: overlay;
+    z-index: 50;
+    opacity:0.4;
+  }
+  .vignette{
+    pointer-events:none;
+    position:fixed; inset:0;
+    box-shadow: inset 0 0 180px rgba(0,0,0,0.65);
+    z-index: 49;
+  }
+  @keyframes flicker{
+    0%, 96%, 100% { opacity: 1; }
+    97% { opacity: 0.94; }
+    98% { opacity: 1; }
+    99% { opacity: 0.97; }
+  }
+  .flicker{ animation: flicker 7s infinite; }
+
+  header{
+    text-align:center;
+    margin-bottom: 26px;
+    max-width: 980px;
+    width:100%;
+  }
+  .boot-line{
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--faint);
+    margin-bottom: 10px;
+    height: 14px;
+    white-space: nowrap;
+    overflow:hidden;
+  }
+  .boot-line .caret{
+    display:inline-block;
+    width:6px; height:11px;
+    background: var(--green-dim);
+    vertical-align: -1px;
+    margin-left:2px;
+    animation: blink 1s steps(1) infinite;
+  }
+  .brand{
+    font-size: 16px;
+    letter-spacing: 8px;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(78,224,138,0.4);
+    font-weight: 600;
+  }
+  .brand span{ color: var(--faint); text-shadow:none; }
+  .sub{
+    margin-top:8px;
+    font-size:10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .console{
+    width:100%;
+    max-width: 980px;
+    background: linear-gradient(180deg, rgba(12,18,15,0.5), rgba(6,9,7,0.5));
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0;
+    box-shadow: 0 30px 70px -30px rgba(0,0,0,0.9), inset 0 0 50px rgba(0,15,8,0.15);
+  }
+  .console-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .console-head .dots{ display:flex; gap:6px; }
+  .console-head .dots i{
+    width:6px; height:6px; border-radius:50%;
+    display:inline-block;
+    background: var(--faint);
+  }
+  .console-body{ padding: 20px; }
+
+  .row{
+    display:flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items:flex-end;
+    margin-bottom: 16px;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    flex: 1 1 160px;
+  }
+  .field.grow{ flex: 3 1 320px; }
+  label{
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  label::before{ content: "["; color: var(--faint); }
+  label::after{ content: "]"; color: var(--faint); }
+  input[type="text"], select{
+    background: #060a08;
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-family: inherit;
+    font-size: 15px;
+    padding: 11px 13px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    caret-color: var(--green);
+  }
+  input[type="text"]::placeholder{ color: var(--faint); }
+  input[type="text"]:focus, select:focus{
+    border-color: var(--green-dim);
+    box-shadow: 0 0 0 3px rgba(78,224,138,0.06);
+  }
+  select{ cursor:pointer; }
+  select option{ background: #06100a; color: var(--green); }
+
+  .chip-group{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .chip{
+    padding: 8px 13px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    cursor:pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .chip:hover{ color: var(--green); border-color: var(--green-dim); }
+  .chip.active{
+    color: #04140a;
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(78,224,138,0.3);
+    font-weight:600;
+  }
+
+  .slider-field{
+    display:flex; flex-direction:column; gap:7px; min-width: 170px;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height:2px;
+    background: var(--border);
+    border-radius: 1px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:11px;height:11px;
+    border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(78,224,138,0.5);
+    cursor:pointer;
+    margin-top:-5px;
+  }
+
+  .divider{
+    height:1px;
+    background: var(--border-soft);
+    margin: 4px 0 16px;
+  }
+
+  .toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap: 10px;
+  }
+  .btn{
+    background: transparent;
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+    padding: 9px 16px;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border-radius: 3px;
+    cursor:pointer;
+    transition: all .15s;
+  }
+  .btn:hover{
+    background: rgba(78,224,138,0.06);
+    box-shadow: 0 0 12px rgba(78,224,138,0.15);
+  }
+  .btn.ghost{ color: var(--muted); border-color: var(--border); }
+  .btn.ghost:hover{ color: var(--text); border-color: var(--muted); background:none; box-shadow:none; }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  .stage-wrap{
+    margin-top: 24px;
+    position:relative;
+    width:100%;
+    max-width: 980px;
+  }
+  .stage{
+    width:100%;
+    min-height: 230px;
+    background: #030503;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 30px;
+    overflow-x: auto;
+    position:relative;
+    box-shadow: inset 0 0 60px rgba(0,15,8,0.35);
+  }
+  .stage::before{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(78,224,138,0.04), transparent 60%);
+    pointer-events:none;
+    border-radius: 4px;
+  }
+  pre#output{
+    margin:0;
+    font-family: 'JetBrains Mono','Consolas',monospace;
+    line-height: 1.05;
+    white-space: pre;
+    display:inline-block;
+    min-width:100%;
+    text-align:center;
+  }
+  pre#output.glitch-anim{
+    animation: glitch-shift 5s infinite;
+  }
+  .empty-state{
+    color: var(--faint);
+    font-size: 11px;
+    letter-spacing:1.5px;
+    text-align:center;
+    padding: 42px 0;
+    text-transform: uppercase;
+  }
+  .empty-state .caret{
+    display:inline-block;
+    width:7px; height:12px;
+    background: var(--green-dim);
+    vertical-align: middle;
+    margin-left:5px;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  @keyframes glitch-shift{
+    0%, 92%, 100% { clip-path: inset(0 0 0 0); transform: translate(0,0); }
+    93% { clip-path: inset(10% 0 60% 0); transform: translate(-1px,0); }
+    94% { clip-path: inset(50% 0 20% 0); transform: translate(1px,0); }
+    95% { clip-path: inset(0 0 0 0); transform: translate(0,0); }
+  }
+
+  .stage-foot{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:12px;
+    font-size: 10px;
+    color: var(--faint);
+    letter-spacing: 1px;
+    width:100%;
+  }
+  .dot{
+    display:inline-block;
+    width:5px;height:5px;
+    border-radius:50%;
+    background: var(--green-dim);
+    box-shadow: 0 0 5px var(--green-dim);
+    margin-right:7px;
+  }
+  .dot.live{ background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  footer.credit{
+    margin-top: 30px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--faint);
+    text-transform: uppercase;
+    text-align:center;
+  }
+
+  ::selection{ background: rgba(78,224,138,0.2); }
+
+  @media (max-width: 640px){
+    .row{ flex-direction:column; align-items:stretch; }
+    .field, .field.grow{ flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<header>
+  <div class="boot-line" id="bootLine"><span class="caret"></span></div>
+  <div class="brand flicker">ASCII<span>::</span>FORGE</div>
+  <div class="sub">text → glyph matrix renderer</div>
+</header>
+
+<div class="console">
+  <div class="console-head">
+    <span>rwin@devforge : ~/ascii-forge</span>
+    <span class="dots"><i></i><i></i><i></i></span>
+  </div>
+  <div class="console-body">
+    <div class="row">
+      <div class="field grow">
+        <label for="inputText">Input string</label>
+        <input type="text" id="inputText" placeholder="type something..." maxlength="24" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="fontSelect">Font</label>
+        <select id="fontSelect"></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Color mode</label>
+        <div class="chip-group" id="colorChips"></div>
+      </div>
+      <div class="slider-field">
+        <label>Glow <span id="glowVal">low</span></label>
+        <input type="range" id="glowSlider" min="0" max="2" value="1" step="1">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toolbar">
+      <div class="btn-row">
+        <button class="btn" id="renderBtn">Render</button>
+        <button class="btn ghost" id="copyBtn">Copy</button>
+        <button class="btn ghost" id="downloadBtn">Download .txt</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="randomBtn">Randomize style</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-wrap">
+  <div class="stage">
+    <pre id="output"></pre>
+    <div class="empty-state" id="emptyState">awaiting input<span class="caret"></span></div>
+  </div>
+  <div class="stage-foot">
+    <span><span class="dot live" id="statusDot"></span><span id="statusText">ready</span></span>
+    <span id="dimsInfo"></span>
+  </div>
+</div>
+
+<footer class="credit">devforge / black8arch</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     FONT DATA
+     Each font: { height, gap, glyphs: { 'A': ["...","..."] } }
+     A default fallback glyph is used for chars not defined
+     (falls back to a solid block letter using BLOCK font's cell,
+     or space if truly unknown).
+     ========================================================= */
+
+  const FONTS = {};
+
+  // ---- BLOCK (5 rows) ----
+  FONTS.block = {
+    height: 5,
+    glyphs: {
+      "A": [" ██ ","█  █","████","█  █","█  █"],
+      "B": ["███ ","█  █","███ ","█  █","███ "],
+      "C": [" ███","█   ","█   ","█   "," ███"],
+      "D": ["███ ","█  █","█  █","█  █","███ "],
+      "E": ["████","█   ","███ ","█   ","████"],
+      "F": ["████","█   ","███ ","█   ","█   "],
+      "G": [" ███","█   ","█ ██","█  █"," ███"],
+      "H": ["█  █","█  █","████","█  █","█  █"],
+      "I": ["███"," █ "," █ "," █ ","███"],
+      "J": ["  █","  █","  █","█ █"," █ "],
+      "K": ["█  █","█ █ ","██  ","█ █ ","█  █"],
+      "L": ["█   ","█   ","█   ","█   ","████"],
+      "M": ["█   █","██ ██","█ █ █","█   █","█   █"],
+      "N": ["█   █","██  █","█ █ █","█  ██","█   █"],
+      "O": [" ██ ","█  █","█  █","█  █"," ██ "],
+      "P": ["███ ","█  █","███ ","█   ","█   "],
+      "Q": [" ██ ","█  █","█  █","█ █ "," ██▄"],
+      "R": ["███ ","█  █","███ ","█ █ ","█  █"],
+      "S": [" ███","█   "," ██ ","   █","███ "],
+      "T": ["█████","  █  ","  █  ","  █  ","  █  "],
+      "U": ["█  █","█  █","█  █","█  █"," ██ "],
+      "V": ["█   █","█   █","█   █"," █ █ ","  █  "],
+      "W": ["█   █","█   █","█ █ █","██ ██","█   █"],
+      "X": ["█   █"," █ █ ","  █  "," █ █ ","█   █"],
+      "Y": ["█   █"," █ █ ","  █  ","  █  ","  █  "],
+      "Z": ["█████","   █ ","  █  "," █   ","█████"],
+      "0": [" ██ ","█  █","█  █","█  █"," ██ "],
+      "1": [" █ ","██ "," █ "," █ ","███"],
+      "2": [" ██ ","█  █","  █ "," █  ","████"],
+      "3": ["███ ","   █"," ██ ","   █","███ "],
+      "4": ["█  █","█  █","████","   █","   █"],
+      "5": ["████","█   ","███ ","   █","███ "],
+      "6": [" ██ ","█   ","███ ","█  █"," ██ "],
+      "7": ["████","   █","  █ "," █  ","█   "],
+      "8": [" ██ ","█  █"," ██ ","█  █"," ██ "],
+      "9": [" ██ ","█  █"," ███","   █"," ██ "],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["█","█","█"," ","█"],
+      "?": [" ██ ","█  █","  █ ","    ","  █ "],
+      ".": [" "," "," "," ","█"],
+      ",": [" "," "," ","█","█"],
+      "-": ["    ","    ","████","    ","    "],
+      "_": ["    ","    ","    ","    ","████"],
+      "'": ["█"," "," "," "," "],
+      "/": ["   █","  █ "," █  ","█   ","    "],
+      ":": [" ","█"," ","█"," "],
+      "@": [" ███ ","█   █","█ ██ ","█    "," ████"]
+    }
+  };
+
+  // ---- SLIM (5 rows, single-width lines) ----
+  FONTS.slim = {
+    height: 5,
+    glyphs: {
+      "A": ["/─\\","│ │","├─┤","│ │","│ │"],
+      "B": ["┌─┐","├─┤","│ │","│ │","└─┘"],
+      "C": ["┌──","│  ","│  ","│  ","└──"],
+      "D": ["┌─┐","│ │","│ │","│ │","└─┘"],
+      "E": ["┌──","├─ ","│  ","├─ ","└──"],
+      "F": ["┌──","├─ ","│  ","│  ","│  "],
+      "G": ["┌──","│  ","│ ┐","│ │","└─┘"],
+      "H": ["│ │","│ │","├─┤","│ │","│ │"],
+      "I": ["─┬─"," │ "," │ "," │ ","─┴─"],
+      "J": ["  │","  │","  │","│ │","└─┘"],
+      "K": ["│ /","│/ ","├< ","│\\ ","│ \\"],
+      "L": ["│  ","│  ","│  ","│  ","└──"],
+      "M": ["┌┐┌┐","││││","│└┘│","│  │","│  │"],
+      "N": ["│ │","│\\│","│ │","│ │","│ │"],
+      "O": ["┌─┐","│ │","│ │","│ │","└─┘"],
+      "P": ["┌─┐","│ │","├─┘","│  ","│  "],
+      "Q": ["┌─┐","│ │","│ │","│ \\","└─┴"],
+      "R": ["┌─┐","│ │","├─┘","│\\ ","│ \\"],
+      "S": ["┌──","└─┐","  │","──┘","   "],
+      "T": ["───","│  "," │ "," │ "," │ "],
+      "U": ["│ │","│ │","│ │","│ │","└─┘"],
+      "V": ["\\ /","\\ /","\\ /"," V ","   "],
+      "W": ["\\  /","\\  /","\\/\\/","    ","    "],
+      "X": ["\\ /"," X "," X ","/ \\","   "],
+      "Y": ["\\ /"," V "," │ "," │ ","   "],
+      "Z": ["───","  /"," / ","/  ","───"],
+      "0": ["┌─┐","│╱│","│ │","│╱│","└─┘"],
+      "1": [" ┐"," │"," │"," │","─┴"],
+      "2": ["┌─┐","  │","┌─┘","│  ","└──"],
+      "3": ["┌─┐","  │"," ─┤","  │","└─┘"],
+      "4": ["│ │","│ │","└─┤","  │","  │"],
+      "5": ["┌──","└─┐","  │","  │","└─┘"],
+      "6": ["┌─ ","│  ","├─┐","│ │","└─┘"],
+      "7": ["───","  │"," │ ","│  ","│  "],
+      "8": ["┌─┐","├─┤","│ │","├─┤","└─┘"],
+      "9": ["┌─┐","│ │","└─┤","  │","└─┘"],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["│","│","│"," ","."],
+      "?": ["┌─┐","  │"," ┌┘","   "," . "],
+      ".": [" "," "," "," ","."],
+      ",": [" "," "," ",".","/"],
+      "-": ["   ","   ","───","   ","   "],
+      "'": ["│"," "," "," "," "],
+      ":": [" ",".","."," ","."]
+    }
+  };
+
+  // ---- BLOB (uses ▓ solid block, thicker, 6 rows) ----
+  FONTS.blob = {
+    height: 6,
+    glyphs: {
+      "A": [" ▓▓ ","▓  ▓","▓  ▓","▓▓▓▓","▓  ▓","▓  ▓"],
+      "B": ["▓▓▓ ","▓  ▓","▓▓▓ ","▓  ▓","▓  ▓","▓▓▓ "],
+      "C": [" ▓▓▓","▓   ","▓   ","▓   ","▓   "," ▓▓▓"],
+      "D": ["▓▓▓ ","▓  ▓","▓  ▓","▓  ▓","▓  ▓","▓▓▓ "],
+      "E": ["▓▓▓▓","▓   ","▓▓▓ ","▓   ","▓   ","▓▓▓▓"],
+      "F": ["▓▓▓▓","▓   ","▓▓▓ ","▓   ","▓   ","▓   "],
+      "G": [" ▓▓▓","▓   ","▓ ▓▓","▓  ▓","▓  ▓"," ▓▓▓"],
+      "H": ["▓  ▓","▓  ▓","▓▓▓▓","▓  ▓","▓  ▓","▓  ▓"],
+      "I": ["▓▓▓","  ▓","  ▓","  ▓","  ▓","▓▓▓"],
+      "J": ["  ▓","  ▓","  ▓","  ▓","▓ ▓"," ▓ "],
+      "K": ["▓  ▓","▓ ▓ ","▓▓  ","▓ ▓ ","▓  ▓","▓  ▓"],
+      "L": ["▓   ","▓   ","▓   ","▓   ","▓   ","▓▓▓▓"],
+      "M": ["▓   ▓","▓▓ ▓▓","▓ ▓ ▓","▓   ▓","▓   ▓","▓   ▓"],
+      "N": ["▓   ▓","▓▓  ▓","▓ ▓ ▓","▓  ▓▓","▓   ▓","▓   ▓"],
+      "O": [" ▓▓ ","▓  ▓","▓  ▓","▓  ▓","▓  ▓"," ▓▓ "],
+      "P": ["▓▓▓ ","▓  ▓","▓▓▓ ","▓   ","▓   ","▓   "],
+      "Q": [" ▓▓ ","▓  ▓","▓  ▓","▓ ▓▓"," ▓▓▓","   ▓"],
+      "R": ["▓▓▓ ","▓  ▓","▓▓▓ ","▓ ▓ ","▓  ▓","▓  ▓"],
+      "S": [" ▓▓▓","▓   "," ▓▓ ","   ▓","   ▓","▓▓▓ "],
+      "T": ["▓▓▓▓▓","  ▓  ","  ▓  ","  ▓  ","  ▓  ","  ▓  "],
+      "U": ["▓  ▓","▓  ▓","▓  ▓","▓  ▓","▓  ▓"," ▓▓ "],
+      "V": ["▓   ▓","▓   ▓","▓   ▓"," ▓ ▓ "," ▓ ▓ ","  ▓  "],
+      "W": ["▓   ▓","▓   ▓","▓ ▓ ▓","▓ ▓ ▓","▓▓ ▓▓","▓   ▓"],
+      "X": ["▓   ▓"," ▓ ▓ ","  ▓  ","  ▓  "," ▓ ▓ ","▓   ▓"],
+      "Y": ["▓   ▓"," ▓ ▓ ","  ▓  ","  ▓  ","  ▓  ","  ▓  "],
+      "Z": ["▓▓▓▓▓","    ▓","   ▓ ","  ▓  "," ▓   ","▓▓▓▓▓"],
+      "0": [" ▓▓ ","▓  ▓","▓  ▓","▓  ▓","▓  ▓"," ▓▓ "],
+      "1": [" ▓ ","▓▓ "," ▓ "," ▓ "," ▓ ","▓▓▓"],
+      "2": [" ▓▓ ","▓  ▓","   ▓","  ▓ "," ▓  ","▓▓▓▓"],
+      "3": ["▓▓▓ ","   ▓"," ▓▓ ","   ▓","   ▓","▓▓▓ "],
+      "4": ["▓  ▓","▓  ▓","▓  ▓","▓▓▓▓","   ▓","   ▓"],
+      "5": ["▓▓▓▓","▓   ","▓▓▓ ","   ▓","   ▓","▓▓▓ "],
+      "6": [" ▓▓ ","▓   ","▓▓▓ ","▓  ▓","▓  ▓"," ▓▓ "],
+      "7": ["▓▓▓▓","   ▓","  ▓ "," ▓  ","▓   ","▓   "],
+      "8": [" ▓▓ ","▓  ▓"," ▓▓ ","▓  ▓","▓  ▓"," ▓▓ "],
+      "9": [" ▓▓ ","▓  ▓","▓  ▓"," ▓▓▓","   ▓"," ▓▓ "],
+      " ": ["  ","  ","  ","  ","  ","  "],
+      "!": ["▓","▓","▓","▓"," ","▓"],
+      "?": [" ▓▓ ","▓  ▓","   ▓","  ▓ ","    ","  ▓ "],
+      ".": [" "," "," "," "," ","▓"],
+      ",": [" "," "," "," ","▓","▓"],
+      "-": ["    ","    ","    ","▓▓▓▓","    ","    "],
+      "'": ["▓"," "," "," "," "," "],
+      ":": [" ","▓"," "," ","▓"," "]
+    }
+  };
+
+  // ---- SHADOW (block letters with a trailing drop-shadow column, 6 rows) ----
+  FONTS.shadow = {
+    height: 6,
+    glyphs: {
+      "A": [" ██  ","█  █ ","████▓","█  █▓","█  █▓","     "],
+      "B": ["███  ","█  █ ","███  ","█  █ ","███▓ ","    ▓"],
+      "C": [" ███ ","█    ","█    ","█    "," ███▓","    ▓"],
+      "D": ["███  ","█  █ ","█  █ ","█  █ ","███▓ ","    ▓"],
+      "E": ["████ ","█    ","███  ","█    ","████▓","    ▓"],
+      "F": ["████ ","█    ","███  ","█    ","█   ▓","    ▓"],
+      "G": [" ███ ","█    ","█ ██ ","█  █ "," ███▓","    ▓"],
+      "H": ["█  █ ","█  █ ","████ ","█  █ ","█  █▓","    ▓"],
+      "I": ["███ ","█   "," █  "," █  ","███▓","   ▓"],
+      "J": ["  █ ","  █ ","  █ ","█ █ "," █ ▓","   ▓"],
+      "K": ["█  █ ","█ █  ","██   ","█ █  ","█  █▓","    ▓"],
+      "L": ["█    ","█    ","█    ","█    ","████▓","    ▓"],
+      "M": ["█   █ ","██ ██ ","█ █ █ ","█   █ ","█   █▓","     ▓"],
+      "N": ["█   █ ","██  █ ","█ █ █ ","█  ██ ","█   █▓","     ▓"],
+      "O": [" ██  ","█  █ ","█  █ ","█  █ "," ██ ▓","    ▓"],
+      "P": ["███  ","█  █ ","███  ","█    ","█   ▓","    ▓"],
+      "Q": [" ██  ","█  █ ","█  █ ","█ █  "," ██▄▓","    ▓"],
+      "R": ["███  ","█  █ ","███  ","█ █  ","█  █▓","    ▓"],
+      "S": [" ███ ","█    "," ██  ","   █ ","███ ▓","    ▓"],
+      "T": ["█████","  █  ","  █  ","  █  ","  █ ▓","    ▓"],
+      "U": ["█  █ ","█  █ ","█  █ ","█  █ "," ██ ▓","    ▓"],
+      "V": ["█   █","█   █","█   █"," █ █ ","  █ ▓","    ▓"],
+      "W": ["█   █ ","█   █ ","█ █ █ ","██ ██ ","█   █▓","     ▓"],
+      "X": ["█   █"," █ █ ","  █  "," █ █ ","█   █","     "],
+      "Y": ["█   █"," █ █ ","  █  ","  █  ","  █ ▓","    ▓"],
+      "Z": ["█████","   █ ","  █  "," █   ","████▓","    ▓"],
+      "0": [" ██  ","█  █ ","█  █ ","█  █ "," ██ ▓","    ▓"],
+      "1": [" █  ","██  "," █  "," █  ","███▓","   ▓"],
+      "2": [" ██  ","█  █ ","  █  "," █   ","████▓","    ▓"],
+      "3": ["███  ","   █ "," ██  ","   █ ","███ ▓","    ▓"],
+      "4": ["█  █ ","█  █ ","████ ","   █ ","   █▓","    ▓"],
+      "5": ["████ ","█    ","███  ","   █ ","███ ▓","    ▓"],
+      "6": [" ██  ","█    ","███  ","█  █ "," ██ ▓","    ▓"],
+      "7": ["████ ","   █ ","  █  "," █   ","█   ▓","    ▓"],
+      "8": [" ██  ","█  █ "," ██  ","█  █ "," ██ ▓","    ▓"],
+      "9": [" ██  ","█  █ "," ███ ","   █ "," ██ ▓","    ▓"],
+      " ": ["  ","  ","  ","  ","  ","  "],
+      "!": ["█","█","█"," ","█","▓"],
+      "?": [" ██ ","█  █","  █ ","    ","  █▓","   ▓"],
+      ".": [" "," "," "," ","█","▓"],
+      ",": [" "," "," ","█","█","▓"],
+      "-": ["    ","    ","████","    ","    ","    "],
+      "'": ["█"," "," "," "," "," "],
+      ":": [" ","█"," ","█"," "," "]
+    }
+  };
+
+  // ---- BUBBLE (rounded, friendly outline letters, 5 rows) ----
+  FONTS.bubble = {
+    height: 5,
+    glyphs: {
+      "A": ["╭─╮","│ │","├─┤","│ │","╵ ╵"],
+      "B": ["╭─╮","├─┤","│ │","├─┤","╰─╯"],
+      "C": ["╭──","│  ","│  ","│  ","╰──"],
+      "D": ["╭─╮","│ │","│ │","│ │","╰─╯"],
+      "E": ["╭──","├─ ","│  ","├─ ","╰──"],
+      "F": ["╭──","├─ ","│  ","│  ","╵  "],
+      "G": ["╭──","│  ","│ ╮","│ │","╰─╯"],
+      "H": ["│ │","│ │","├─┤","│ │","╵ ╵"],
+      "I": ["───"," │ "," │ "," │ ","───"],
+      "J": ["  │","  │","  │","╮ │","╰─╯"],
+      "K": ["│ ╱","│╱ ","├╮ ","│ ╲","╵ ╲"],
+      "L": ["│  ","│  ","│  ","│  ","╰──"],
+      "M": ["╭╮╭╮","││││","│╰╯│","│  │","╵  ╵"],
+      "N": ["╭╮ │","││╲│","││ ╲","││ │","╵╵ ╵"],
+      "O": ["╭─╮","│ │","│ │","│ │","╰─╯"],
+      "P": ["╭─╮","│ │","├─╯","│  ","╵  "],
+      "Q": ["╭─╮","│ │","│ │","│ ╲","╰─╲"],
+      "R": ["╭─╮","│ │","├─╯","│╲ ","╵ ╲"],
+      "S": ["╭──","╰─╮","  │","──╯","   "],
+      "T": ["───","│  "," │ "," │ "," ╵ "],
+      "U": ["│ │","│ │","│ │","│ │","╰─╯"],
+      "V": ["╲ ╱","╲ ╱","╲ ╱"," ╲╱"," ╵ "],
+      "W": ["╲  ╱","╲  ╱","╲╱╲╱"," ╲╱ ","  ╵ "],
+      "X": ["╲ ╱"," ╳ "," ╳ ","╱ ╲","╵ ╵"],
+      "Y": ["╲ ╱"," ╳ "," │ "," │ "," ╵ "],
+      "Z": ["───","  ╱"," ╱ ","╱  ","───"],
+      "0": ["╭─╮","│╲│","│ │","│╱│","╰─╯"],
+      "1": [" ╮"," │"," │"," │","─╯"],
+      "2": ["╭─╮","  │","╭─╯","│  ","───"],
+      "3": ["╭─╮","  │"," ─┤","  │","╰─╯"],
+      "4": ["│ │","│ │","╰─┤","  │","  ╵"],
+      "5": ["╭──","╰─╮","  │","  │","╰─╯"],
+      "6": ["╭─ ","│  ","├─╮","│ │","╰─╯"],
+      "7": ["───","  │"," │ ","│  ","╵  "],
+      "8": ["╭─╮","├─┤","│ │","├─┤","╰─╯"],
+      "9": ["╭─╮","│ │","╰─┤","  │","╰─╯"],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["│","│","│"," ","○"],
+      "?": ["╭─╮","  │"," ╭╯","   "," ○ "],
+      ".": [" "," "," "," ","○"],
+      ",": [" "," "," ","○","╱"],
+      "-": ["   ","   ","───","   ","   "],
+      "'": ["╮"," "," "," "," "],
+      ":": [" ","○"," ","○"," "]
+    }
+  };
+
+  // ---- MARQUEE (tall dramatic display font, 7 rows) ----
+  FONTS.marquee = {
+    height: 7,
+    glyphs: {
+      "A": ["  █  ","  █  "," █ █ "," █ █ ","█████","█   █","█   █"],
+      "B": ["████ ","█   █","█   █","████ ","█   █","█   █","████ "],
+      "C": [" ████","█    ","█    ","█    ","█    ","█    "," ████"],
+      "D": ["████ ","█   █","█   █","█   █","█   █","█   █","████ "],
+      "E": ["█████","█    ","█    ","████ ","█    ","█    ","█████"],
+      "F": ["█████","█    ","█    ","████ ","█    ","█    ","█    "],
+      "G": [" ████","█    ","█    ","█ ███","█   █","█   █"," ████"],
+      "H": ["█   █","█   █","█   █","█████","█   █","█   █","█   █"],
+      "I": ["█████","  █  ","  █  ","  █  ","  █  ","  █  ","█████"],
+      "J": ["    █","    █","    █","    █","    █","█   █"," ███ "],
+      "K": ["█   █","█  █ ","█ █  ","██   ","█ █  ","█  █ ","█   █"],
+      "L": ["█    ","█    ","█    ","█    ","█    ","█    ","█████"],
+      "M": ["█   █","██ ██","█ █ █","█ █ █","█   █","█   █","█   █"],
+      "N": ["█   █","██  █","█ █ █","█ █ █","█  ██","█   █","█   █"],
+      "O": [" ███ ","█   █","█   █","█   █","█   █","█   █"," ███ "],
+      "P": ["████ ","█   █","█   █","████ ","█    ","█    ","█    "],
+      "Q": [" ███ ","█   █","█   █","█   █","█ █ █","█  █ "," ██ █"],
+      "R": ["████ ","█   █","█   █","████ ","█ █  ","█  █ ","█   █"],
+      "S": [" ████","█    ","█    "," ███ ","    █","    █","████ "],
+      "T": ["█████","  █  ","  █  ","  █  ","  █  ","  █  ","  █  "],
+      "U": ["█   █","█   █","█   █","█   █","█   █","█   █"," ███ "],
+      "V": ["█   █","█   █","█   █","█   █"," █ █ "," █ █ ","  █  "],
+      "W": ["█   █","█   █","█   █","█ █ █","█ █ █","██ ██","█   █"],
+      "X": ["█   █"," █ █ ","  █  ","  █  ","  █  "," █ █ ","█   █"],
+      "Y": ["█   █"," █ █ ","  █  ","  █  ","  █  ","  █  ","  █  "],
+      "Z": ["█████","    █","   █ ","  █  "," █   ","█    ","█████"],
+      "0": [" ███ ","█   █","█  ██","█ █ █","██  █","█   █"," ███ "],
+      "1": ["  █  "," ██  ","  █  ","  █  ","  █  ","  █  "," ███ "],
+      "2": [" ███ ","█   █","    █","   █ ","  █  "," █   ","█████"],
+      "3": ["████ ","    █","   █ "," ██  ","    █","    █","████ "],
+      "4": ["█   █","█   █","█   █","█████","    █","    █","    █"],
+      "5": ["█████","█    ","█    ","████ ","    █","    █","████ "],
+      "6": [" ███ ","█    ","█    ","████ ","█   █","█   █"," ███ "],
+      "7": ["█████","    █","   █ ","  █  "," █   ","█    ","█    "],
+      "8": [" ███ ","█   █","█   █"," ███ ","█   █","█   █"," ███ "],
+      "9": [" ███ ","█   █","█   █"," ████","    █","    █"," ███ "],
+      " ": ["  ","  ","  ","  ","  ","  ","  "],
+      "!": ["█","█","█","█","█"," ","█"],
+      "?": [" ███ ","█   █","    █","   █ ","  █  ","     ","  █  "],
+      ".": [" "," "," "," "," "," ","█"],
+      ",": [" "," "," "," "," ","█","█"],
+      "-": ["     ","     ","     ","█████","     ","     ","     "],
+      "'": ["█"," "," "," "," "," "," "],
+      ":": [" ","█"," "," ","█"," "," "]
+    }
+  };
+
+  // build fallback for missing glyph per font, sized to font height with a filled box using representative char
+  function getGlyph(font, ch){
+    const upper = ch.toUpperCase();
+    if(font.glyphs[ch]) return font.glyphs[ch];
+    if(font.glyphs[upper]) return font.glyphs[upper];
+    // unknown char -> blank column block sized 3 wide
+    const w = 3;
+    const rows = [];
+    for(let i=0;i<font.height;i++) rows.push(" ".repeat(w));
+    return rows;
+  }
+
+  function renderText(str, fontKey){
+    const font = FONTS[fontKey] || FONTS.block;
+    if(!str || !str.length) return "";
+    const chars = str.split("");
+    const glyphRows = chars.map(c => getGlyph(font, c));
+    const lines = [];
+    for(let r=0;r<font.height;r++){
+      let line = "";
+      glyphRows.forEach((g, idx) => {
+        const rowStr = g[r] !== undefined ? g[r] : "";
+        line += rowStr;
+        line += " "; // inter-char gap
+      });
+      lines.push(line.replace(/\s+$/,"") === "" ? line : line);
+    }
+    // trim fully-empty trailing/leading? Keep as-is for consistent block.
+    return lines.join("\n");
+  }
+
+  /* =========================================================
+     COLOR MODES
+     ========================================================= */
+  const COLOR_MODES = [
+    { id: "phosphor", label: "Phosphor" },
+    { id: "cyan", label: "Cyan" },
+    { id: "amber", label: "Amber" },
+    { id: "gradient", label: "Gradient" },
+    { id: "rainbow", label: "Rainbow" },
+    { id: "matrix", label: "Matrix" },
+    { id: "glitch", label: "Glitch" },
+    { id: "mono", label: "Mono" }
+  ];
+
+  function hslToHex(h, s, l){
+    s/=100; l/=100;
+    const k = n => (n + h/30) % 12;
+    const a = s * Math.min(l, 1-l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+    const toHex = x => Math.round(255*x).toString(16).padStart(2,"0");
+    return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+  }
+
+  function lerpColor(hexA, hexB, t){
+    const a = parseInt(hexA.slice(1),16), b = parseInt(hexB.slice(1),16);
+    const ar=(a>>16)&255, ag=(a>>8)&255, ab=a&255;
+    const br=(b>>16)&255, bg=(b>>8)&255, bb=b&255;
+    const r = Math.round(ar + (br-ar)*t);
+    const g = Math.round(ag + (bg-ag)*t);
+    const bl = Math.round(ab + (bb-ab)*t);
+    return `rgb(${r},${g},${bl})`;
+  }
+
+  function colorForCell(mode, colIndex, totalCols, rowIndex, totalRows, ch){
+    if(ch === " ") return null;
+    switch(mode){
+      case "phosphor": return "#4ee08a";
+      case "cyan": return "#4fd8e0";
+      case "amber": return "#d9a55a";
+      case "mono": return "#c3d9cd";
+      case "matrix": {
+        // vertical-ish falloff green shades based on row
+        const shades = ["#1e8f52","#4ee08a","#8bffb8","#4ee08a","#1e8f52","#0a5c30"];
+        return shades[rowIndex % shades.length];
+      }
+      case "gradient": {
+        const t = totalCols <= 1 ? 0 : colIndex/(totalCols-1);
+        return lerpColor("#4ee08a", "#4fd8e0", t);
+      }
+      case "rainbow": {
+        const t = totalCols <= 1 ? 0 : colIndex/(totalCols-1);
+        const hue = (t*300); // avoid wrapping back to red for a cleaner spectrum
+        return hslToHex(hue, 80, 58);
+      }
+      case "glitch": {
+        // mostly phosphor, with occasional cyan/danger corruption flecks
+        const seed = (colIndex * 7 + rowIndex * 13) % 23;
+        if(seed === 0) return "#4fd8e0";
+        if(seed === 11) return "#c65f5f";
+        return "#4ee08a";
+      }
+      default: return "#4ee08a";
+    }
+  }
+
+  function glowStyle(level){
+    // level 0,1,2
+    if(level === 0) return "none";
+    if(level === 1) return "0 0 6px currentColor";
+    return "0 0 6px currentColor, 0 0 16px currentColor";
+  }
+
+  /* =========================================================
+     DOM WIRING
+     ========================================================= */
+  const inputText = document.getElementById("inputText");
+  const fontSelect = document.getElementById("fontSelect");
+  const colorChipsWrap = document.getElementById("colorChips");
+  const glowSlider = document.getElementById("glowSlider");
+  const glowVal = document.getElementById("glowVal");
+  const output = document.getElementById("output");
+  const emptyState = document.getElementById("emptyState");
+  const dimsInfo = document.getElementById("dimsInfo");
+  const statusText = document.getElementById("statusText");
+  const statusDot = document.getElementById("statusDot");
+  const renderBtn = document.getElementById("renderBtn");
+  const copyBtn = document.getElementById("copyBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const randomBtn = document.getElementById("randomBtn");
+  const bootLine = document.getElementById("bootLine");
+
+  let state = {
+    font: "block",
+    color: "phosphor",
+    glow: 1
+  };
+
+  Object.keys(FONTS).forEach(key => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = key.toUpperCase();
+    fontSelect.appendChild(opt);
+  });
+  fontSelect.value = state.font;
+
+  COLOR_MODES.forEach(mode => {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (mode.id === state.color ? " active" : "");
+    chip.textContent = mode.label;
+    chip.dataset.mode = mode.id;
+    chip.addEventListener("click", () => {
+      state.color = mode.id;
+      [...colorChipsWrap.children].forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      draw();
+    });
+    colorChipsWrap.appendChild(chip);
+  });
+
+  const GLOW_LABELS = ["off","low","high"];
+  function updateGlowLabel(){
+    glowVal.textContent = GLOW_LABELS[state.glow];
+  }
+  updateGlowLabel();
+
+  glowSlider.addEventListener("input", () => {
+    state.glow = parseInt(glowSlider.value, 10);
+    updateGlowLabel();
+    draw();
+  });
+  fontSelect.addEventListener("change", () => {
+    state.font = fontSelect.value;
+    draw();
+  });
+
+  function draw(){
+    const raw = inputText.value;
+    if(!raw || !raw.trim()){
+      output.style.display = "none";
+      output.classList.remove("glitch-anim");
+      emptyState.style.display = "block";
+      dimsInfo.textContent = "";
+      statusText.textContent = "idle";
+      statusDot.classList.remove("live");
+      return;
+    }
+    const text = raw.toUpperCase();
+    const artLines = renderText(text, state.font).split("\n");
+    const totalCols = Math.max(...artLines.map(l => l.length));
+    const totalRows = artLines.length;
+
+    output.innerHTML = "";
+    const glow = glowStyle(state.glow);
+
+    artLines.forEach((line, rowIndex) => {
+      const rowFrag = document.createDocumentFragment();
+      for(let c=0;c<line.length;c++){
+        const ch = line[c];
+        const span = document.createElement("span");
+        span.textContent = ch === " " ? " " : ch;
+        const color = colorForCell(state.color, c, totalCols, rowIndex, totalRows, ch);
+        if(color){
+          span.style.color = color;
+          span.style.textShadow = glow === "none" ? "none" : glow;
+        }
+        rowFrag.appendChild(span);
+      }
+      output.appendChild(rowFrag);
+      if(rowIndex < artLines.length - 1){
+        output.appendChild(document.createTextNode("\n"));
+      }
+    });
+
+    output.style.display = "inline-block";
+    output.classList.toggle("glitch-anim", state.color === "glitch");
+    emptyState.style.display = "none";
+    dimsInfo.textContent = `${state.font} · ${totalCols}×${totalRows}`;
+    statusText.textContent = "rendered";
+    statusDot.classList.add("live");
+  }
+
+  function plainArt(){
+    const raw = inputText.value;
+    if(!raw || !raw.trim()) return "";
+    return renderText(raw.toUpperCase(), state.font);
+  }
+
+  renderBtn.addEventListener("click", draw);
+  inputText.addEventListener("input", draw);
+  inputText.addEventListener("keydown", e => { if(e.key === "Enter") draw(); });
+
+  copyBtn.addEventListener("click", async () => {
+    const text = plainArt();
+    if(!text) return;
+    try{
+      await navigator.clipboard.writeText(text);
+      flashBtn(copyBtn, "Copied");
+    }catch(e){
+      flashBtn(copyBtn, "Failed");
+    }
+  });
+
+  downloadBtn.addEventListener("click", () => {
+    const text = plainArt();
+    if(!text) return;
+    const blob = new Blob([text], {type:"text/plain"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (inputText.value.trim().toLowerCase().replace(/[^a-z0-9]+/g,"_") || "ascii") + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    flashBtn(downloadBtn, "Saved");
+  });
+
+  randomBtn.addEventListener("click", () => {
+    const fontKeys = Object.keys(FONTS);
+    const nextFont = fontKeys[Math.floor(Math.random()*fontKeys.length)];
+    const nextColor = COLOR_MODES[Math.floor(Math.random()*COLOR_MODES.length)];
+    fontSelect.value = nextFont;
+    state.font = nextFont;
+    state.color = nextColor.id;
+    [...colorChipsWrap.children].forEach(c => c.classList.toggle("active", c.dataset.mode === nextColor.id));
+    state.glow = Math.floor(Math.random()*3);
+    glowSlider.value = state.glow;
+    updateGlowLabel();
+    draw();
+  });
+
+  function flashBtn(btn, msg){
+    const original = btn.textContent;
+    btn.textContent = msg;
+    setTimeout(() => { btn.textContent = original; }, 1100);
+  }
+
+  // initial demo
+  inputText.value = "RWIN";
+  draw();
+
+  // boot-line typing effect (cosmetic, no functional dependency)
+  (function bootType(){
+    const msg = "system online · font bank loaded · 6 typefaces · 8 color modes";
+    let i = 0;
+    const caret = bootLine.querySelector(".caret");
+    function tick(){
+      if(i <= msg.length){
+        bootLine.textContent = msg.slice(0, i);
+        bootLine.appendChild(caret);
+        i++;
+        setTimeout(tick, 14);
+      }
+    }
+    tick();
+  })();
+})();
+</script>
+</body>
+</html>
