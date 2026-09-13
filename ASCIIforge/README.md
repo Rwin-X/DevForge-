@@ -14,10 +14,6 @@ Built entirely in HTML, CSS, and vanilla JavaScript — no build step, no CDN, n
 - **Self-contained font engine** — each font is a plain glyph map (`{ "A": ["row1","row2",...] }`); adding a new font means adding one object, no external font files or canvas rasterization involved
 - Dark, minimal, terminal-styled interface: phosphor-green accent, scanline overlay, boot-line intro text, bracketed field labels
 
-## Screenshots
-
-*(add screenshots here once you've generated them)*
-
 ## Requirements
 
 - Any modern browser (Chrome, Firefox, Safari, Edge). No build tools, no runtime, no internet connection needed after download.
@@ -28,13 +24,6 @@ This is a single HTML file — there is nothing to build or install.
 
 ### Quick start
 
-```bash
-git clone https://github.com/black8arch/ascii-forge.git
-cd ascii-forge
-xdg-open ascii-forge.html   # Linux
-# or: open ascii-forge.html       (macOS)
-# or: start ascii-forge.html      (Windows)
-```
 
 Alternatively, just download `ascii-forge.html` and double-click it.
 
