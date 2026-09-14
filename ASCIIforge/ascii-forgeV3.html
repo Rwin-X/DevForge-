@@ -1,0 +1,2668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII::FORGE</title>
+<style>
+  :root{
+    --bg: #050706;
+    --panel: #0a0e0c;
+    --border: #1c2e24;
+    --border-soft: #14211a;
+    --green: #4ee08a;
+    --green-dim: #245c3d;
+    --cyan: #4fd8e0;
+    --amber: #d9a55a;
+    --text: #c3d9cd;
+    --muted: #4d6357;
+    --faint: #2e4038;
+    --danger: #c65f5f;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(20,40,30,0.35), transparent 60%),
+      linear-gradient(180deg, #060907 0%, #040504 100%);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100%;
+    padding: 40px 16px 70px;
+    position:relative;
+  }
+
+  /* live particle background: sits behind everything, quiet ember drift */
+  #bgCanvas{
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    z-index: 0;
+    pointer-events:none;
+    opacity: 0.55;
+  }
+
+  /* subtle vignette + scanlines, quieter than before */
+  .scanlines{
+    pointer-events:none;
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 3px,
+      rgba(0,0,0,0.05) 4px
+    );
+    mix-blend-mode: overlay;
+    z-index: 50;
+    opacity:0.4;
+  }
+  .vignette{
+    pointer-events:none;
+    position:fixed; inset:0;
+    box-shadow: inset 0 0 180px rgba(0,0,0,0.65);
+    z-index: 49;
+  }
+  @keyframes flicker{
+    0%, 96%, 100% { opacity: 1; }
+    97% { opacity: 0.94; }
+    98% { opacity: 1; }
+    99% { opacity: 0.97; }
+  }
+  .flicker{ animation: flicker 7s infinite; }
+
+  header{
+    text-align:center;
+    margin-bottom: 26px;
+    max-width: 980px;
+    width:100%;
+  }
+  .boot-line{
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--faint);
+    margin-bottom: 10px;
+    height: 14px;
+    white-space: nowrap;
+    overflow:hidden;
+  }
+  .boot-line .caret{
+    display:inline-block;
+    width:6px; height:11px;
+    background: var(--green-dim);
+    vertical-align: -1px;
+    margin-left:2px;
+    animation: blink 1s steps(1) infinite;
+  }
+  .brand{
+    font-size: 16px;
+    letter-spacing: 8px;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(78,224,138,0.4);
+    font-weight: 600;
+  }
+  .brand span{ color: var(--faint); text-shadow:none; }
+  .sub{
+    margin-top:8px;
+    font-size:10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .console{
+    width:100%;
+    max-width: 980px;
+    background: linear-gradient(180deg, rgba(12,18,15,0.5), rgba(6,9,7,0.5));
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0;
+    box-shadow: 0 30px 70px -30px rgba(0,0,0,0.9), inset 0 0 50px rgba(0,15,8,0.15);
+  }
+  .console-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .console-head .dots{ display:flex; gap:6px; }
+  .console-head .dots i{
+    width:6px; height:6px; border-radius:50%;
+    display:inline-block;
+    background: var(--faint);
+  }
+  .console-body{ padding: 20px; }
+
+  .row{
+    display:flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items:flex-end;
+    margin-bottom: 16px;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    flex: 1 1 160px;
+  }
+  .field.grow{ flex: 3 1 320px; }
+  label{
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  label::before{ content: "["; color: var(--faint); }
+  label::after{ content: "]"; color: var(--faint); }
+  input[type="text"], select{
+    background: #060a08;
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-family: inherit;
+    font-size: 15px;
+    padding: 11px 13px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    caret-color: var(--green);
+  }
+  input[type="text"]::placeholder{ color: var(--faint); }
+  input[type="text"]:focus, select:focus{
+    border-color: var(--green-dim);
+    box-shadow: 0 0 0 3px rgba(78,224,138,0.06);
+  }
+  select{ cursor:pointer; }
+  select option{ background: #06100a; color: var(--green); }
+
+  .chip-group{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .chip{
+    padding: 8px 13px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    cursor:pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .chip:hover{ color: var(--green); border-color: var(--green-dim); }
+  .chip.active{
+    color: #04140a;
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(78,224,138,0.3);
+    font-weight:600;
+  }
+
+  .slider-field{
+    display:flex; flex-direction:column; gap:7px; min-width: 170px;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height:2px;
+    background: var(--border);
+    border-radius: 1px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:11px;height:11px;
+    border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(78,224,138,0.5);
+    cursor:pointer;
+    margin-top:-5px;
+  }
+
+  .divider{
+    height:1px;
+    background: var(--border-soft);
+    margin: 4px 0 16px;
+  }
+
+  .mode-tabs{
+    display:flex;
+    gap: 2px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .mode-tab{
+    background:transparent;
+    border:none;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 8px 4px;
+    margin-right: 18px;
+    cursor:pointer;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .mode-tab:hover{ color: var(--text); }
+  .mode-tab.active{
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+
+  textarea#inputText{
+    background: #060a08;
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-family: inherit;
+    font-size: 15px;
+    padding: 11px 13px;
+    border-radius: 3px;
+    outline: none;
+    resize: vertical;
+    min-height: 46px;
+    transition: border-color .15s, box-shadow .15s;
+    caret-color: var(--green);
+  }
+  textarea#inputText::placeholder{ color: var(--faint); }
+  textarea#inputText:focus{
+    border-color: var(--green-dim);
+    box-shadow: 0 0 0 3px rgba(78,224,138,0.06);
+  }
+
+  .drop-zone{
+    background: #060a08;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: lowercase;
+    padding: 20px 13px;
+    border-radius: 3px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .drop-zone:hover, .drop-zone.drag-over{
+    border-color: var(--green-dim);
+    color: var(--green);
+    background: rgba(78,224,138,0.03);
+  }
+  .drop-zone.has-file{
+    border-style: solid;
+    color: var(--green);
+  }
+
+  .webcam-box{
+    background: #060a08;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 20px 13px;
+    border-radius: 3px;
+    text-align:center;
+  }
+  .webcam-box.live{
+    color: var(--green);
+    border-color: var(--green-dim);
+  }
+
+  label .inline-check{
+    -webkit-appearance:none;
+    width: 13px; height:13px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    vertical-align: -2px;
+    margin-right: 6px;
+    cursor:pointer;
+    position:relative;
+    background: #060a08;
+  }
+  label .inline-check:checked{
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(78,224,138,0.3);
+  }
+  label .inline-check:checked::after{
+    content:"";
+    position:absolute;
+    left:3px; top:0px;
+    width:4px; height:8px;
+    border: solid #04140a;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  label:has(.inline-check){
+    text-transform:none;
+    letter-spacing: 0.3px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    height: 100%;
+  }
+  label:has(.inline-check)::before, label:has(.inline-check)::after{ content:none; }
+
+  .toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap: 10px;
+  }
+  .btn{
+    background: transparent;
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+    padding: 9px 16px;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border-radius: 3px;
+    cursor:pointer;
+    transition: all .15s;
+  }
+  .btn:hover{
+    background: rgba(78,224,138,0.06);
+    box-shadow: 0 0 12px rgba(78,224,138,0.15);
+  }
+  .btn.ghost{ color: var(--muted); border-color: var(--border); }
+  .btn.ghost:hover{ color: var(--text); border-color: var(--muted); background:none; box-shadow:none; }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  .stage-wrap{
+    margin-top: 24px;
+    position:relative;
+    width:100%;
+    max-width: 980px;
+  }
+  .stage{
+    width:100%;
+    min-height: 230px;
+    background: #030503;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 30px;
+    overflow-x: auto;
+    position:relative;
+    box-shadow: inset 0 0 60px rgba(0,15,8,0.35);
+  }
+  .stage::before{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(78,224,138,0.04), transparent 60%);
+    pointer-events:none;
+    border-radius: 4px;
+  }
+  pre#output{
+    margin:0;
+    font-family: 'JetBrains Mono','Consolas',monospace;
+    line-height: 1.05;
+    white-space: pre;
+    display:inline-block;
+    min-width:100%;
+    text-align:center;
+  }
+  pre#output.glitch-anim{
+    animation: glitch-shift 5s infinite;
+  }
+  .empty-state{
+    color: var(--faint);
+    font-size: 11px;
+    letter-spacing:1.5px;
+    text-align:center;
+    padding: 42px 0;
+    text-transform: uppercase;
+  }
+  .empty-state .caret{
+    display:inline-block;
+    width:7px; height:12px;
+    background: var(--green-dim);
+    vertical-align: middle;
+    margin-left:5px;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  @keyframes glitch-shift{
+    0%, 92%, 100% { clip-path: inset(0 0 0 0); transform: translate(0,0); }
+    93% { clip-path: inset(10% 0 60% 0); transform: translate(-1px,0); }
+    94% { clip-path: inset(50% 0 20% 0); transform: translate(1px,0); }
+    95% { clip-path: inset(0 0 0 0); transform: translate(0,0); }
+  }
+
+  @keyframes glyph-enter{
+    0% { opacity: 0; transform: translateY(10px); filter: blur(2px); }
+    60% { opacity: 1; }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+  .glyph-enter{
+    display: inline-block;
+    opacity: 0;
+    animation: glyph-enter 0.4s ease-out forwards;
+  }
+
+  .stage-foot{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:12px;
+    font-size: 10px;
+    color: var(--faint);
+    letter-spacing: 1px;
+    width:100%;
+  }
+  .dot{
+    display:inline-block;
+    width:5px;height:5px;
+    border-radius:50%;
+    background: var(--green-dim);
+    box-shadow: 0 0 5px var(--green-dim);
+    margin-right:7px;
+  }
+  .dot.live{ background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  .history-wrap{
+    width:100%;
+    max-width: 980px;
+    margin-top: 20px;
+  }
+  .history-label{
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--faint);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .history-strip{
+    display:flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .history-item{
+    flex: 0 0 auto;
+    background: #060a08;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    cursor:pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .history-item:hover{
+    color: var(--green);
+    border-color: var(--green-dim);
+  }
+
+  .code-export-wrap{
+    width:100%;
+    max-width: 980px;
+    margin-top: 26px;
+    background: linear-gradient(180deg, rgba(12,18,15,0.5), rgba(6,9,7,0.5));
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px 18px 18px;
+  }
+  .code-export-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .code-export-label{
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .code-export-sub{
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    letter-spacing: 0.3px;
+  }
+  .lang-tabs{
+    display:flex;
+    gap: 4px;
+  }
+  .lang-tab{
+    background:transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 5px 11px;
+    border-radius: 3px;
+    cursor:pointer;
+    transition: all .15s;
+  }
+  .lang-tab:hover{ color: var(--text); border-color: var(--muted); }
+  .lang-tab.active{
+    color: #04140a;
+    background: var(--green);
+    border-color: var(--green);
+  }
+  pre.code-block{
+    margin: 0;
+    background: #030503;
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    padding: 16px;
+    max-height: 320px;
+    overflow: auto;
+    font-family: 'JetBrains Mono','Consolas',monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: pre;
+  }
+  pre.code-block code{
+    font-family: inherit;
+  }
+  .code-kw{ color: #4fd8e0; }
+  .code-str{ color: #d9a55a; }
+  .code-com{ color: var(--faint); }
+  .code-export-toolbar{
+    display:flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  footer.credit{
+    margin-top: 30px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--faint);
+    text-transform: uppercase;
+    text-align:center;
+  }
+
+  ::selection{ background: rgba(78,224,138,0.2); }
+
+  @media (max-width: 640px){
+    .row{ flex-direction:column; align-items:stretch; }
+    .field, .field.grow{ flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<header>
+  <div class="boot-line" id="bootLine"><span class="caret"></span></div>
+  <div class="brand flicker">ASCII<span>::</span>FORGE</div>
+  <div class="sub">text → glyph matrix renderer</div>
+</header>
+
+<div class="console">
+  <div class="console-head">
+    <span>rwin@devforge : ~/ascii-forge</span>
+    <span class="dots"><i></i><i></i><i></i></span>
+  </div>
+  <div class="console-body">
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabText" data-mode="text">Text</button>
+      <button class="mode-tab" id="tabImage" data-mode="image">Image</button>
+      <button class="mode-tab" id="tabWebcam" data-mode="webcam">Webcam</button>
+    </div>
+
+    <div class="mode-panel" id="panelText">
+      <div class="row">
+        <div class="field grow">
+          <label for="inputText">Input text (multi-line)</label>
+          <textarea id="inputText" placeholder="type something..." maxlength="120" autocomplete="off" spellcheck="false" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label for="fontSelect">Font</label>
+          <select id="fontSelect"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="mode-panel" id="panelImage" style="display:none;">
+      <div class="row">
+        <div class="field grow">
+          <label for="imageInput">Source image</label>
+          <div class="drop-zone" id="dropZone">
+            <span id="dropLabel">click or drop an image</span>
+            <input type="file" id="imageInput" accept="image/*" hidden>
+          </div>
+        </div>
+        <div class="slider-field">
+          <label>Output width <span id="imgWidthVal">80</span></label>
+          <input type="range" id="imgWidthSlider" min="30" max="160" value="80" step="5">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Ramp</label>
+          <div class="chip-group" id="rampChips"></div>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" id="invertCheck" class="inline-check"> Invert</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="mode-panel" id="panelWebcam" style="display:none;">
+      <div class="row">
+        <div class="field grow">
+          <label>Live camera feed</label>
+          <div class="webcam-box">
+            <span id="webcamStatus">camera not started</span>
+          </div>
+        </div>
+        <div class="slider-field">
+          <label>Output width <span id="camWidthVal">70</span></label>
+          <input type="range" id="camWidthSlider" min="30" max="140" value="70" step="5">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Ramp</label>
+          <div class="chip-group" id="camRampChips"></div>
+        </div>
+        <div class="btn-row" style="align-items:flex-end;">
+          <button class="btn ghost" id="camStartBtn">Start camera</button>
+          <button class="btn ghost" id="camStopBtn">Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Color mode</label>
+        <div class="chip-group" id="colorChips"></div>
+      </div>
+      <div class="slider-field">
+        <label>Glow <span id="glowVal">low</span></label>
+        <input type="range" id="glowSlider" min="0" max="2" value="1" step="1">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toolbar">
+      <div class="btn-row">
+        <button class="btn" id="renderBtn">Render</button>
+        <button class="btn ghost" id="copyBtn">Copy</button>
+        <button class="btn ghost" id="downloadBtn">Download .txt</button>
+        <button class="btn ghost" id="downloadPngBtn">Download .png</button>
+        <button class="btn ghost" id="downloadGifBtn">Download .gif</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn ghost" id="randomBtn">Randomize style</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-wrap">
+  <div class="stage">
+    <pre id="output"></pre>
+    <div class="empty-state" id="emptyState">awaiting input<span class="caret"></span></div>
+  </div>
+  <div class="stage-foot">
+    <span><span class="dot live" id="statusDot"></span><span id="statusText">ready</span></span>
+    <span id="dimsInfo"></span>
+  </div>
+</div>
+
+<div class="history-wrap" id="historyWrap" style="display:none;">
+  <div class="history-label">[ recent ]</div>
+  <div class="history-strip" id="historyStrip"></div>
+</div>
+
+<div class="code-export-wrap" id="codeExportWrap">
+  <div class="code-export-head">
+    <div class="code-export-label">[ terminal snippet ]</div>
+    <div class="lang-tabs">
+      <button class="lang-tab active" id="langPython" data-lang="python">Python</button>
+      <button class="lang-tab" id="langBash" data-lang="bash">Bash</button>
+    </div>
+  </div>
+  <div class="code-export-sub" id="codeExportSub">generates the exact render above, with colors, when run in a terminal</div>
+  <pre class="code-block" id="codeBlock"><code id="codeBlockContent"></code></pre>
+  <div class="code-export-toolbar">
+    <button class="btn ghost" id="copyCodeBtn">Copy code</button>
+    <button class="btn ghost" id="downloadCodeBtn">Download script</button>
+  </div>
+</div>
+
+<canvas id="pngCanvas" style="display:none;"></canvas>
+<canvas id="camCanvas" style="display:none;"></canvas>
+<video id="camVideo" style="display:none;" autoplay playsinline muted></video>
+
+<footer class="credit">devforge / black8arch</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     LIVE PARTICLE BACKGROUND
+     A quiet field of drifting embers behind the whole page.
+     Self-contained: reads nothing from app state, just runs.
+     ========================================================= */
+  (function initParticleField(){
+    const canvas = document.getElementById("bgCanvas");
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let w, h, particles;
+    const COUNT = 70;
+    const PALETTE = ["#4ee08a", "#4fd8e0", "#245c3d"];
+
+    function resize(){
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+    }
+    function makeParticle(){
+      return {
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 0.6 + Math.random() * 1.6,
+        speed: 6 + Math.random() * 14,       // px per second, drifting upward
+        drift: (Math.random() - 0.5) * 8,     // slight horizontal sway
+        alpha: 0.15 + Math.random() * 0.5,
+        flicker: Math.random() * Math.PI * 2,
+        color: PALETTE[Math.floor(Math.random() * PALETTE.length)]
+      };
+    }
+    function init(){
+      resize();
+      particles = Array.from({length: COUNT}, makeParticle);
+    }
+
+    let lastTime = null;
+    function tick(now){
+      if(lastTime === null) lastTime = now;
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      ctx.clearRect(0, 0, w, h);
+      particles.forEach(p => {
+        p.y -= p.speed * dt;
+        p.x += p.drift * dt;
+        p.flicker += dt * 2;
+        if(p.y < -10){
+          p.y = h + 10;
+          p.x = Math.random() * w;
+        }
+        if(p.x < -10) p.x = w + 10;
+        if(p.x > w + 10) p.x = -10;
+
+        const pulse = 0.6 + 0.4 * Math.sin(p.flicker);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha * pulse;
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(tick);
+    }
+
+    // respect users who've asked for reduced motion
+    const prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(prefersReducedMotion) return;
+
+    init();
+    window.addEventListener("resize", resize);
+    requestAnimationFrame(tick);
+  })();
+
+  /* =========================================================
+     FONT DATA
+     Each font: { height, gap, glyphs: { 'A': ["...","..."] } }
+     A default fallback glyph is used for chars not defined
+     (falls back to a solid block letter using BLOCK font's cell,
+     or space if truly unknown).
+     ========================================================= */
+
+  const FONTS = {};
+
+  // ---- BLOCK (5 rows) ----
+  FONTS.block = {
+    height: 5,
+    glyphs: {
+      "A": [" ██ ","█  █","████","█  █","█  █"],
+      "B": ["███ ","█  █","███ ","█  █","███ "],
+      "C": [" ███","█   ","█   ","█   "," ███"],
+      "D": ["███ ","█  █","█  █","█  █","███ "],
+      "E": ["████","█   ","███ ","█   ","████"],
+      "F": ["████","█   ","███ ","█   ","█   "],
+      "G": [" ███","█   ","█ ██","█  █"," ███"],
+      "H": ["█  █","█  █","████","█  █","█  █"],
+      "I": ["███"," █ "," █ "," █ ","███"],
+      "J": ["  █","  █","  █","█ █"," █ "],
+      "K": ["█  █","█ █ ","██  ","█ █ ","█  █"],
+      "L": ["█   ","█   ","█   ","█   ","████"],
+      "M": ["█   █","██ ██","█ █ █","█   █","█   █"],
+      "N": ["█   █","██  █","█ █ █","█  ██","█   █"],
+      "O": [" ██ ","█  █","█  █","█  █"," ██ "],
+      "P": ["███ ","█  █","███ ","█   ","█   "],
+      "Q": [" ██ ","█  █","█  █","█ █ "," ██▄"],
+      "R": ["███ ","█  █","███ ","█ █ ","█  █"],
+      "S": [" ███","█   "," ██ ","   █","███ "],
+      "T": ["█████","  █  ","  █  ","  █  ","  █  "],
+      "U": ["█  █","█  █","█  █","█  █"," ██ "],
+      "V": ["█   █","█   █","█   █"," █ █ ","  █  "],
+      "W": ["█   █","█   █","█ █ █","██ ██","█   █"],
+      "X": ["█   █"," █ █ ","  █  "," █ █ ","█   █"],
+      "Y": ["█   █"," █ █ ","  █  ","  █  ","  █  "],
+      "Z": ["█████","   █ ","  █  "," █   ","█████"],
+      "0": [" ██ ","█  █","█  █","█  █"," ██ "],
+      "1": [" █ ","██ "," █ "," █ ","███"],
+      "2": [" ██ ","█  █","  █ "," █  ","████"],
+      "3": ["███ ","   █"," ██ ","   █","███ "],
+      "4": ["█  █","█  █","████","   █","   █"],
+      "5": ["████","█   ","███ ","   █","███ "],
+      "6": [" ██ ","█   ","███ ","█  █"," ██ "],
+      "7": ["████","   █","  █ "," █  ","█   "],
+      "8": [" ██ ","█  █"," ██ ","█  █"," ██ "],
+      "9": [" ██ ","█  █"," ███","   █"," ██ "],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["█","█","█"," ","█"],
+      "?": [" ██ ","█  █","  █ ","    ","  █ "],
+      ".": [" "," "," "," ","█"],
+      ",": [" "," "," ","█","█"],
+      "-": ["    ","    ","████","    ","    "],
+      "_": ["    ","    ","    ","    ","████"],
+      "'": ["█"," "," "," "," "],
+      "/": ["   █","  █ "," █  ","█   ","    "],
+      ":": [" ","█"," ","█"," "],
+      "@": [" ███ ","█   █","█ ██ ","█    "," ████"]
+    }
+  };
+
+  // ---- SLIM (5 rows, single-width lines) ----
+  FONTS.slim = {
+    height: 5,
+    glyphs: {
+      "A": ["/─\\","│ │","├─┤","│ │","│ │"],
+      "B": ["┌─┐","├─┤","│ │","│ │","└─┘"],
+      "C": ["┌──","│  ","│  ","│  ","└──"],
+      "D": ["┌─┐","│ │","│ │","│ │","└─┘"],
+      "E": ["┌──","├─ ","│  ","├─ ","└──"],
+      "F": ["┌──","├─ ","│  ","│  ","│  "],
+      "G": ["┌──","│  ","│ ┐","│ │","└─┘"],
+      "H": ["│ │","│ │","├─┤","│ │","│ │"],
+      "I": ["─┬─"," │ "," │ "," │ ","─┴─"],
+      "J": ["  │","  │","  │","│ │","└─┘"],
+      "K": ["│ /","│/ ","├< ","│\\ ","│ \\"],
+      "L": ["│  ","│  ","│  ","│  ","└──"],
+      "M": ["┌┐┌┐","││││","│└┘│","│  │","│  │"],
+      "N": ["│ │","│\\│","│ │","│ │","│ │"],
+      "O": ["┌─┐","│ │","│ │","│ │","└─┘"],
+      "P": ["┌─┐","│ │","├─┘","│  ","│  "],
+      "Q": ["┌─┐","│ │","│ │","│ \\","└─┴"],
+      "R": ["┌─┐","│ │","├─┘","│\\ ","│ \\"],
+      "S": ["┌──","└─┐","  │","──┘","   "],
+      "T": ["───","│  "," │ "," │ "," │ "],
+      "U": ["│ │","│ │","│ │","│ │","└─┘"],
+      "V": ["\\ /","\\ /","\\ /"," V ","   "],
+      "W": ["\\  /","\\  /","\\/\\/","    ","    "],
+      "X": ["\\ /"," X "," X ","/ \\","   "],
+      "Y": ["\\ /"," V "," │ "," │ ","   "],
+      "Z": ["───","  /"," / ","/  ","───"],
+      "0": ["┌─┐","│╱│","│ │","│╱│","└─┘"],
+      "1": [" ┐"," │"," │"," │","─┴"],
+      "2": ["┌─┐","  │","┌─┘","│  ","└──"],
+      "3": ["┌─┐","  │"," ─┤","  │","└─┘"],
+      "4": ["│ │","│ │","└─┤","  │","  │"],
+      "5": ["┌──","└─┐","  │","  │","└─┘"],
+      "6": ["┌─ ","│  ","├─┐","│ │","└─┘"],
+      "7": ["───","  │"," │ ","│  ","│  "],
+      "8": ["┌─┐","├─┤","│ │","├─┤","└─┘"],
+      "9": ["┌─┐","│ │","└─┤","  │","└─┘"],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["│","│","│"," ","."],
+      "?": ["┌─┐","  │"," ┌┘","   "," . "],
+      ".": [" "," "," "," ","."],
+      ",": [" "," "," ",".","/"],
+      "-": ["   ","   ","───","   ","   "],
+      "'": ["│"," "," "," "," "],
+      ":": [" ",".","."," ","."]
+    }
+  };
+
+  // ---- BLOB (uses ▓ solid block, thicker, 6 rows) ----
+  FONTS.blob = {
+    height: 6,
+    glyphs: {
+      "A": [" ▓▓ ","▓  ▓","▓  ▓","▓▓▓▓","▓  ▓","▓  ▓"],
+      "B": ["▓▓▓ ","▓  ▓","▓▓▓ ","▓  ▓","▓  ▓","▓▓▓ "],
+      "C": [" ▓▓▓","▓   ","▓   ","▓   ","▓   "," ▓▓▓"],
+      "D": ["▓▓▓ ","▓  ▓","▓  ▓","▓  ▓","▓  ▓","▓▓▓ "],
+      "E": ["▓▓▓▓","▓   ","▓▓▓ ","▓   ","▓   ","▓▓▓▓"],
+      "F": ["▓▓▓▓","▓   ","▓▓▓ ","▓   ","▓   ","▓   "],
+      "G": [" ▓▓▓","▓   ","▓ ▓▓","▓  ▓","▓  ▓"," ▓▓▓"],
+      "H": ["▓  ▓","▓  ▓","▓▓▓▓","▓  ▓","▓  ▓","▓  ▓"],
+      "I": ["▓▓▓","  ▓","  ▓","  ▓","  ▓","▓▓▓"],
+      "J": ["  ▓","  ▓","  ▓","  ▓","▓ ▓"," ▓ "],
+      "K": ["▓  ▓","▓ ▓ ","▓▓  ","▓ ▓ ","▓  ▓","▓  ▓"],
+      "L": ["▓   ","▓   ","▓   ","▓   ","▓   ","▓▓▓▓"],
+      "M": ["▓   ▓","▓▓ ▓▓","▓ ▓ ▓","▓   ▓","▓   ▓","▓   ▓"],
+      "N": ["▓   ▓","▓▓  ▓","▓ ▓ ▓","▓  ▓▓","▓   ▓","▓   ▓"],
+      "O": [" ▓▓ ","▓  ▓","▓  ▓","▓  ▓","▓  ▓"," ▓▓ "],
+      "P": ["▓▓▓ ","▓  ▓","▓▓▓ ","▓   ","▓   ","▓   "],
+      "Q": [" ▓▓ ","▓  ▓","▓  ▓","▓ ▓▓"," ▓▓▓","   ▓"],
+      "R": ["▓▓▓ ","▓  ▓","▓▓▓ ","▓ ▓ ","▓  ▓","▓  ▓"],
+      "S": [" ▓▓▓","▓   "," ▓▓ ","   ▓","   ▓","▓▓▓ "],
+      "T": ["▓▓▓▓▓","  ▓  ","  ▓  ","  ▓  ","  ▓  ","  ▓  "],
+      "U": ["▓  ▓","▓  ▓","▓  ▓","▓  ▓","▓  ▓"," ▓▓ "],
+      "V": ["▓   ▓","▓   ▓","▓   ▓"," ▓ ▓ "," ▓ ▓ ","  ▓  "],
+      "W": ["▓   ▓","▓   ▓","▓ ▓ ▓","▓ ▓ ▓","▓▓ ▓▓","▓   ▓"],
+      "X": ["▓   ▓"," ▓ ▓ ","  ▓  ","  ▓  "," ▓ ▓ ","▓   ▓"],
+      "Y": ["▓   ▓"," ▓ ▓ ","  ▓  ","  ▓  ","  ▓  ","  ▓  "],
+      "Z": ["▓▓▓▓▓","    ▓","   ▓ ","  ▓  "," ▓   ","▓▓▓▓▓"],
+      "0": [" ▓▓ ","▓  ▓","▓  ▓","▓  ▓","▓  ▓"," ▓▓ "],
+      "1": [" ▓ ","▓▓ "," ▓ "," ▓ "," ▓ ","▓▓▓"],
+      "2": [" ▓▓ ","▓  ▓","   ▓","  ▓ "," ▓  ","▓▓▓▓"],
+      "3": ["▓▓▓ ","   ▓"," ▓▓ ","   ▓","   ▓","▓▓▓ "],
+      "4": ["▓  ▓","▓  ▓","▓  ▓","▓▓▓▓","   ▓","   ▓"],
+      "5": ["▓▓▓▓","▓   ","▓▓▓ ","   ▓","   ▓","▓▓▓ "],
+      "6": [" ▓▓ ","▓   ","▓▓▓ ","▓  ▓","▓  ▓"," ▓▓ "],
+      "7": ["▓▓▓▓","   ▓","  ▓ "," ▓  ","▓   ","▓   "],
+      "8": [" ▓▓ ","▓  ▓"," ▓▓ ","▓  ▓","▓  ▓"," ▓▓ "],
+      "9": [" ▓▓ ","▓  ▓","▓  ▓"," ▓▓▓","   ▓"," ▓▓ "],
+      " ": ["  ","  ","  ","  ","  ","  "],
+      "!": ["▓","▓","▓","▓"," ","▓"],
+      "?": [" ▓▓ ","▓  ▓","   ▓","  ▓ ","    ","  ▓ "],
+      ".": [" "," "," "," "," ","▓"],
+      ",": [" "," "," "," ","▓","▓"],
+      "-": ["    ","    ","    ","▓▓▓▓","    ","    "],
+      "'": ["▓"," "," "," "," "," "],
+      ":": [" ","▓"," "," ","▓"," "]
+    }
+  };
+
+  // ---- SHADOW (block letters with a trailing drop-shadow column, 6 rows) ----
+  FONTS.shadow = {
+    height: 6,
+    glyphs: {
+      "A": [" ██  ","█  █ ","████▓","█  █▓","█  █▓","     "],
+      "B": ["███  ","█  █ ","███  ","█  █ ","███▓ ","    ▓"],
+      "C": [" ███ ","█    ","█    ","█    "," ███▓","    ▓"],
+      "D": ["███  ","█  █ ","█  █ ","█  █ ","███▓ ","    ▓"],
+      "E": ["████ ","█    ","███  ","█    ","████▓","    ▓"],
+      "F": ["████ ","█    ","███  ","█    ","█   ▓","    ▓"],
+      "G": [" ███ ","█    ","█ ██ ","█  █ "," ███▓","    ▓"],
+      "H": ["█  █ ","█  █ ","████ ","█  █ ","█  █▓","    ▓"],
+      "I": ["███ ","█   "," █  "," █  ","███▓","   ▓"],
+      "J": ["  █ ","  █ ","  █ ","█ █ "," █ ▓","   ▓"],
+      "K": ["█  █ ","█ █  ","██   ","█ █  ","█  █▓","    ▓"],
+      "L": ["█    ","█    ","█    ","█    ","████▓","    ▓"],
+      "M": ["█   █ ","██ ██ ","█ █ █ ","█   █ ","█   █▓","     ▓"],
+      "N": ["█   █ ","██  █ ","█ █ █ ","█  ██ ","█   █▓","     ▓"],
+      "O": [" ██  ","█  █ ","█  █ ","█  █ "," ██ ▓","    ▓"],
+      "P": ["███  ","█  █ ","███  ","█    ","█   ▓","    ▓"],
+      "Q": [" ██  ","█  █ ","█  █ ","█ █  "," ██▄▓","    ▓"],
+      "R": ["███  ","█  █ ","███  ","█ █  ","█  █▓","    ▓"],
+      "S": [" ███ ","█    "," ██  ","   █ ","███ ▓","    ▓"],
+      "T": ["█████","  █  ","  █  ","  █  ","  █ ▓","    ▓"],
+      "U": ["█  █ ","█  █ ","█  █ ","█  █ "," ██ ▓","    ▓"],
+      "V": ["█   █","█   █","█   █"," █ █ ","  █ ▓","    ▓"],
+      "W": ["█   █ ","█   █ ","█ █ █ ","██ ██ ","█   █▓","     ▓"],
+      "X": ["█   █"," █ █ ","  █  "," █ █ ","█   █","     "],
+      "Y": ["█   █"," █ █ ","  █  ","  █  ","  █ ▓","    ▓"],
+      "Z": ["█████","   █ ","  █  "," █   ","████▓","    ▓"],
+      "0": [" ██  ","█  █ ","█  █ ","█  █ "," ██ ▓","    ▓"],
+      "1": [" █  ","██  "," █  "," █  ","███▓","   ▓"],
+      "2": [" ██  ","█  █ ","  █  "," █   ","████▓","    ▓"],
+      "3": ["███  ","   █ "," ██  ","   █ ","███ ▓","    ▓"],
+      "4": ["█  █ ","█  █ ","████ ","   █ ","   █▓","    ▓"],
+      "5": ["████ ","█    ","███  ","   █ ","███ ▓","    ▓"],
+      "6": [" ██  ","█    ","███  ","█  █ "," ██ ▓","    ▓"],
+      "7": ["████ ","   █ ","  █  "," █   ","█   ▓","    ▓"],
+      "8": [" ██  ","█  █ "," ██  ","█  █ "," ██ ▓","    ▓"],
+      "9": [" ██  ","█  █ "," ███ ","   █ "," ██ ▓","    ▓"],
+      " ": ["  ","  ","  ","  ","  ","  "],
+      "!": ["█","█","█"," ","█","▓"],
+      "?": [" ██ ","█  █","  █ ","    ","  █▓","   ▓"],
+      ".": [" "," "," "," ","█","▓"],
+      ",": [" "," "," ","█","█","▓"],
+      "-": ["    ","    ","████","    ","    ","    "],
+      "'": ["█"," "," "," "," "," "],
+      ":": [" ","█"," ","█"," "," "]
+    }
+  };
+
+  // ---- BUBBLE (rounded, friendly outline letters, 5 rows) ----
+  FONTS.bubble = {
+    height: 5,
+    glyphs: {
+      "A": ["╭─╮","│ │","├─┤","│ │","╵ ╵"],
+      "B": ["╭─╮","├─┤","│ │","├─┤","╰─╯"],
+      "C": ["╭──","│  ","│  ","│  ","╰──"],
+      "D": ["╭─╮","│ │","│ │","│ │","╰─╯"],
+      "E": ["╭──","├─ ","│  ","├─ ","╰──"],
+      "F": ["╭──","├─ ","│  ","│  ","╵  "],
+      "G": ["╭──","│  ","│ ╮","│ │","╰─╯"],
+      "H": ["│ │","│ │","├─┤","│ │","╵ ╵"],
+      "I": ["───"," │ "," │ "," │ ","───"],
+      "J": ["  │","  │","  │","╮ │","╰─╯"],
+      "K": ["│ ╱","│╱ ","├╮ ","│ ╲","╵ ╲"],
+      "L": ["│  ","│  ","│  ","│  ","╰──"],
+      "M": ["╭╮╭╮","││││","│╰╯│","│  │","╵  ╵"],
+      "N": ["╭╮ │","││╲│","││ ╲","││ │","╵╵ ╵"],
+      "O": ["╭─╮","│ │","│ │","│ │","╰─╯"],
+      "P": ["╭─╮","│ │","├─╯","│  ","╵  "],
+      "Q": ["╭─╮","│ │","│ │","│ ╲","╰─╲"],
+      "R": ["╭─╮","│ │","├─╯","│╲ ","╵ ╲"],
+      "S": ["╭──","╰─╮","  │","──╯","   "],
+      "T": ["───","│  "," │ "," │ "," ╵ "],
+      "U": ["│ │","│ │","│ │","│ │","╰─╯"],
+      "V": ["╲ ╱","╲ ╱","╲ ╱"," ╲╱"," ╵ "],
+      "W": ["╲  ╱","╲  ╱","╲╱╲╱"," ╲╱ ","  ╵ "],
+      "X": ["╲ ╱"," ╳ "," ╳ ","╱ ╲","╵ ╵"],
+      "Y": ["╲ ╱"," ╳ "," │ "," │ "," ╵ "],
+      "Z": ["───","  ╱"," ╱ ","╱  ","───"],
+      "0": ["╭─╮","│╲│","│ │","│╱│","╰─╯"],
+      "1": [" ╮"," │"," │"," │","─╯"],
+      "2": ["╭─╮","  │","╭─╯","│  ","───"],
+      "3": ["╭─╮","  │"," ─┤","  │","╰─╯"],
+      "4": ["│ │","│ │","╰─┤","  │","  ╵"],
+      "5": ["╭──","╰─╮","  │","  │","╰─╯"],
+      "6": ["╭─ ","│  ","├─╮","│ │","╰─╯"],
+      "7": ["───","  │"," │ ","│  ","╵  "],
+      "8": ["╭─╮","├─┤","│ │","├─┤","╰─╯"],
+      "9": ["╭─╮","│ │","╰─┤","  │","╰─╯"],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["│","│","│"," ","○"],
+      "?": ["╭─╮","  │"," ╭╯","   "," ○ "],
+      ".": [" "," "," "," ","○"],
+      ",": [" "," "," ","○","╱"],
+      "-": ["   ","   ","───","   ","   "],
+      "'": ["╮"," "," "," "," "],
+      ":": [" ","○"," ","○"," "]
+    }
+  };
+
+  // ---- MARQUEE (tall dramatic display font, 7 rows) ----
+  FONTS.marquee = {
+    height: 7,
+    glyphs: {
+      "A": ["  █  ","  █  "," █ █ "," █ █ ","█████","█   █","█   █"],
+      "B": ["████ ","█   █","█   █","████ ","█   █","█   █","████ "],
+      "C": [" ████","█    ","█    ","█    ","█    ","█    "," ████"],
+      "D": ["████ ","█   █","█   █","█   █","█   █","█   █","████ "],
+      "E": ["█████","█    ","█    ","████ ","█    ","█    ","█████"],
+      "F": ["█████","█    ","█    ","████ ","█    ","█    ","█    "],
+      "G": [" ████","█    ","█    ","█ ███","█   █","█   █"," ████"],
+      "H": ["█   █","█   █","█   █","█████","█   █","█   █","█   █"],
+      "I": ["█████","  █  ","  █  ","  █  ","  █  ","  █  ","█████"],
+      "J": ["    █","    █","    █","    █","    █","█   █"," ███ "],
+      "K": ["█   █","█  █ ","█ █  ","██   ","█ █  ","█  █ ","█   █"],
+      "L": ["█    ","█    ","█    ","█    ","█    ","█    ","█████"],
+      "M": ["█   █","██ ██","█ █ █","█ █ █","█   █","█   █","█   █"],
+      "N": ["█   █","██  █","█ █ █","█ █ █","█  ██","█   █","█   █"],
+      "O": [" ███ ","█   █","█   █","█   █","█   █","█   █"," ███ "],
+      "P": ["████ ","█   █","█   █","████ ","█    ","█    ","█    "],
+      "Q": [" ███ ","█   █","█   █","█   █","█ █ █","█  █ "," ██ █"],
+      "R": ["████ ","█   █","█   █","████ ","█ █  ","█  █ ","█   █"],
+      "S": [" ████","█    ","█    "," ███ ","    █","    █","████ "],
+      "T": ["█████","  █  ","  █  ","  █  ","  █  ","  █  ","  █  "],
+      "U": ["█   █","█   █","█   █","█   █","█   █","█   █"," ███ "],
+      "V": ["█   █","█   █","█   █","█   █"," █ █ "," █ █ ","  █  "],
+      "W": ["█   █","█   █","█   █","█ █ █","█ █ █","██ ██","█   █"],
+      "X": ["█   █"," █ █ ","  █  ","  █  ","  █  "," █ █ ","█   █"],
+      "Y": ["█   █"," █ █ ","  █  ","  █  ","  █  ","  █  ","  █  "],
+      "Z": ["█████","    █","   █ ","  █  "," █   ","█    ","█████"],
+      "0": [" ███ ","█   █","█  ██","█ █ █","██  █","█   █"," ███ "],
+      "1": ["  █  "," ██  ","  █  ","  █  ","  █  ","  █  "," ███ "],
+      "2": [" ███ ","█   █","    █","   █ ","  █  "," █   ","█████"],
+      "3": ["████ ","    █","   █ "," ██  ","    █","    █","████ "],
+      "4": ["█   █","█   █","█   █","█████","    █","    █","    █"],
+      "5": ["█████","█    ","█    ","████ ","    █","    █","████ "],
+      "6": [" ███ ","█    ","█    ","████ ","█   █","█   █"," ███ "],
+      "7": ["█████","    █","   █ ","  █  "," █   ","█    ","█    "],
+      "8": [" ███ ","█   █","█   █"," ███ ","█   █","█   █"," ███ "],
+      "9": [" ███ ","█   █","█   █"," ████","    █","    █"," ███ "],
+      " ": ["  ","  ","  ","  ","  ","  ","  "],
+      "!": ["█","█","█","█","█"," ","█"],
+      "?": [" ███ ","█   █","    █","   █ ","  █  ","     ","  █  "],
+      ".": [" "," "," "," "," "," ","█"],
+      ",": [" "," "," "," "," ","█","█"],
+      "-": ["     ","     ","     ","█████","     ","     ","     "],
+      "'": ["█"," "," "," "," "," "," "],
+      ":": [" ","█"," "," ","█"," "," "]
+    }
+  };
+
+  // ---- THIN (hairline single-stroke, 5 rows) ----
+  FONTS.thin = {
+    height: 5,
+    glyphs: {
+      "A": [" ┃ ","┃ ┃","┃━┃","┃ ┃","┃ ┃"],
+      "B": ["┃━ ","┃ ┃","┃━ ","┃ ┃","┃━ "],
+      "C": [" ┃━","┃  ","┃  ","┃  "," ┃━"],
+      "D": ["┃━ ","┃ ┃","┃ ┃","┃ ┃","┃━ "],
+      "E": ["┃━┃","┃  ","┃━ ","┃  ","┃━┃"],
+      "F": ["┃━┃","┃  ","┃━ ","┃  ","┃  "],
+      "G": [" ┃━","┃  ","┃ ┃","┃ ┃"," ┃━"],
+      "H": ["┃ ┃","┃ ┃","┃━┃","┃ ┃","┃ ┃"],
+      "I": ["━┃━"," ┃ "," ┃ "," ┃ ","━┃━"],
+      "J": ["  ┃","  ┃","  ┃","┃ ┃"," ┃ "],
+      "K": ["┃╱ ","┃╱ ","┃━ ","┃╲ ","┃ ╲"],
+      "L": ["┃  ","┃  ","┃  ","┃  ","┃━┃"],
+      "M": ["┃ ┃","┃┃┃","┃ ┃","┃ ┃","┃ ┃"],
+      "N": ["┃╲┃","┃╲┃","┃╲┃","┃ ╲","┃  "],
+      "O": [" ┃ "," ┃ "," ┃ "," ┃ "," ┃ "],
+      "P": ["┃━ ","┃ ┃","┃━ ","┃  ","┃  "],
+      "Q": [" ┃ ","┃ ┃","┃ ┃","┃╲┃"," ┃╲"],
+      "R": ["┃━ ","┃ ┃","┃━ ","┃╲ ","┃ ╲"],
+      "S": [" ┃━","┃  "," ━ ","  ┃","━┃ "],
+      "T": ["━┃━"," ┃ "," ┃ "," ┃ "," ┃ "],
+      "U": ["┃ ┃","┃ ┃","┃ ┃","┃ ┃"," ┃ "],
+      "V": ["┃ ┃","┃ ┃","┃ ┃","╲ ╱"," ╹ "],
+      "W": ["┃ ┃","┃ ┃","┃┃┃","┃┃┃","╲╹╱"],
+      "X": ["╲ ╱"," ╳ "," ╳ ","╱ ╲","   "],
+      "Y": ["╲ ╱"," ╳ "," ┃ "," ┃ "," ┃ "],
+      "Z": ["━┃━","  ╱"," ╱ ","╱  ","━┃━"],
+      "0": [" ┃ ","┃╲┃","┃ ┃","┃╱┃"," ┃ "],
+      "1": [" ╻ ","┃┃ "," ┃ "," ┃ ","━┃━"],
+      "2": [" ┃━","┃ ┃","  ┃"," ┃ ","━┃━"],
+      "3": ["┃━ ","  ┃"," ━ ","  ┃","┃━ "],
+      "4": ["┃ ┃","┃ ┃","┃━┃","  ┃","  ┃"],
+      "5": ["┃━┃","┃  ","┃━ ","  ┃","┃━ "],
+      "6": [" ┃━","┃  ","┃━ ","┃ ┃"," ┃ "],
+      "7": ["┃━┃","  ┃"," ┃ ","┃  ","┃  "],
+      "8": [" ┃ ","┃ ┃"," ┃ ","┃ ┃"," ┃ "],
+      "9": [" ┃ ","┃ ┃"," ┃┃","  ┃"," ┃ "],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["┃","┃","┃"," ","╹"],
+      "?": [" ┃━","  ┃"," ╻ ","   "," ╹ "],
+      ".": [" "," "," "," ","╹"],
+      ",": [" "," "," ","╹","╱"],
+      "-": ["   ","   ","━━━","   ","   "],
+      "'": ["╻"," "," "," "," "],
+      ":": [" ","╹"," ","╹"," "]
+    }
+  };
+
+  // ---- PIXEL (retro 8-bit chunky square, 7 rows, 5 wide) ----
+  FONTS.pixel = {
+    height: 7,
+    glyphs: {
+      "A": ["░▓▓▓░","▓░░░▓","▓░░░▓","▓▓▓▓▓","▓░░░▓","▓░░░▓","▓░░░▓"],
+      "B": ["▓▓▓▓░","▓░░░▓","▓▓▓▓░","▓░░░▓","▓░░░▓","▓░░░▓","▓▓▓▓░"],
+      "C": ["░▓▓▓▓","▓░░░░","▓░░░░","▓░░░░","▓░░░░","▓░░░░","░▓▓▓▓"],
+      "D": ["▓▓▓▓░","▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","▓▓▓▓░"],
+      "E": ["▓▓▓▓▓","▓░░░░","▓░░░░","▓▓▓▓░","▓░░░░","▓░░░░","▓▓▓▓▓"],
+      "F": ["▓▓▓▓▓","▓░░░░","▓░░░░","▓▓▓▓░","▓░░░░","▓░░░░","▓░░░░"],
+      "G": ["░▓▓▓▓","▓░░░░","▓░░░░","▓░▓▓▓","▓░░░▓","▓░░░▓","░▓▓▓░"],
+      "H": ["▓░░░▓","▓░░░▓","▓░░░▓","▓▓▓▓▓","▓░░░▓","▓░░░▓","▓░░░▓"],
+      "I": ["▓▓▓▓▓","░░▓░░","░░▓░░","░░▓░░","░░▓░░","░░▓░░","▓▓▓▓▓"],
+      "J": ["░░░▓▓","░░░░▓","░░░░▓","░░░░▓","░░░░▓","▓░░░▓","░▓▓▓░"],
+      "K": ["▓░░░▓","▓░░▓░","▓░▓░░","▓▓░░░","▓░▓░░","▓░░▓░","▓░░░▓"],
+      "L": ["▓░░░░","▓░░░░","▓░░░░","▓░░░░","▓░░░░","▓░░░░","▓▓▓▓▓"],
+      "M": ["▓░░░▓","▓▓░▓▓","▓░▓░▓","▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓"],
+      "N": ["▓░░░▓","▓▓░░▓","▓░▓░▓","▓░░▓▓","▓░░░▓","▓░░░▓","▓░░░▓"],
+      "O": ["░▓▓▓░","▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","░▓▓▓░"],
+      "P": ["▓▓▓▓░","▓░░░▓","▓░░░▓","▓▓▓▓░","▓░░░░","▓░░░░","▓░░░░"],
+      "Q": ["░▓▓▓░","▓░░░▓","▓░░░▓","▓░░░▓","▓░▓░▓","▓░░▓░","░▓▓░▓"],
+      "R": ["▓▓▓▓░","▓░░░▓","▓░░░▓","▓▓▓▓░","▓░▓░░","▓░░▓░","▓░░░▓"],
+      "S": ["░▓▓▓▓","▓░░░░","▓░░░░","░▓▓▓░","░░░░▓","░░░░▓","▓▓▓▓░"],
+      "T": ["▓▓▓▓▓","░░▓░░","░░▓░░","░░▓░░","░░▓░░","░░▓░░","░░▓░░"],
+      "U": ["▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","░▓▓▓░"],
+      "V": ["▓░░░▓","▓░░░▓","▓░░░▓","▓░░░▓","░▓░▓░","░▓░▓░","░░▓░░"],
+      "W": ["▓░░░▓","▓░░░▓","▓░░░▓","▓░▓░▓","▓░▓░▓","▓▓░▓▓","▓░░░▓"],
+      "X": ["▓░░░▓","░▓░▓░","░░▓░░","░░▓░░","░░▓░░","░▓░▓░","▓░░░▓"],
+      "Y": ["▓░░░▓","░▓░▓░","░░▓░░","░░▓░░","░░▓░░","░░▓░░","░░▓░░"],
+      "Z": ["▓▓▓▓▓","░░░░▓","░░░▓░","░░▓░░","░▓░░░","▓░░░░","▓▓▓▓▓"],
+      "0": ["░▓▓▓░","▓░░░▓","▓░░▓▓","▓░▓░▓","▓▓░░▓","▓░░░▓","░▓▓▓░"],
+      "1": ["░░▓░░","░▓▓░░","▓░▓░░","░░▓░░","░░▓░░","░░▓░░","▓▓▓▓▓"],
+      "2": ["░▓▓▓░","▓░░░▓","░░░░▓","░░░▓░","░░▓░░","░▓░░░","▓▓▓▓▓"],
+      "3": ["▓▓▓▓░","░░░░▓","░░░▓░","░░▓▓░","░░░░▓","░░░░▓","▓▓▓▓░"],
+      "4": ["░░░▓░","░░▓▓░","░▓░▓░","▓░░▓░","▓▓▓▓▓","░░░▓░","░░░▓░"],
+      "5": ["▓▓▓▓▓","▓░░░░","▓▓▓▓░","░░░░▓","░░░░▓","▓░░░▓","░▓▓▓░"],
+      "6": ["░▓▓▓░","▓░░░░","▓░░░░","▓▓▓▓░","▓░░░▓","▓░░░▓","░▓▓▓░"],
+      "7": ["▓▓▓▓▓","░░░░▓","░░░▓░","░░▓░░","░▓░░░","░▓░░░","░▓░░░"],
+      "8": ["░▓▓▓░","▓░░░▓","▓░░░▓","░▓▓▓░","▓░░░▓","▓░░░▓","░▓▓▓░"],
+      "9": ["░▓▓▓░","▓░░░▓","▓░░░▓","░▓▓▓▓","░░░░▓","░░░░▓","░▓▓▓░"],
+      " ": ["░░","░░","░░","░░","░░","░░","░░"],
+      "!": ["▓","▓","▓","▓","▓","░","▓"],
+      "?": ["░▓▓▓░","▓░░░▓","░░░▓░","░░▓░░","░░▓░░","░░░░░","░░▓░░"],
+      ".": ["░","░","░","░","░","░","▓"],
+      ",": ["░","░","░","░","░","▓","▓"],
+      "-": ["░░░░░","░░░░░","░░░░░","▓▓▓▓▓","░░░░░","░░░░░","░░░░░"],
+      "'": ["▓","░","░","░","░","░","░"],
+      ":": ["░","▓","░","░","▓","░","░"]
+    }
+  };
+
+  // ---- BANNER (double-line box outline, 5 rows) ----
+  FONTS.banner = {
+    height: 5,
+    glyphs: {
+      "A": ["╔═╗","║ ║","╠═╣","║ ║","║ ║"],
+      "B": ["╔═╗","╠═╣","║ ║","╠═╣","╚═╝"],
+      "C": ["╔══","║  ","║  ","║  ","╚══"],
+      "D": ["╔═╗","║ ║","║ ║","║ ║","╚═╝"],
+      "E": ["╔══","╠═ ","║  ","╠═ ","╚══"],
+      "F": ["╔══","╠═ ","║  ","║  ","║  "],
+      "G": ["╔══","║  ","║ ╗","║ ║","╚═╝"],
+      "H": ["║ ║","║ ║","╠═╣","║ ║","║ ║"],
+      "I": ["═╦═"," ║ "," ║ "," ║ ","═╩═"],
+      "J": ["  ║","  ║","  ║","║ ║","╚═╝"],
+      "K": ["║ ╔","║╔ ","╠╣ ","║╚ ","║ ╚"],
+      "L": ["║  ","║  ","║  ","║  ","╚══"],
+      "M": ["╔╗╔╗","║╚╝║","║  ║","║  ║","╚  ╝"],
+      "N": ["╔╗ ║","║╚╗║","║ ╚║","║  ╝","╚   "],
+      "O": ["╔═╗","║ ║","║ ║","║ ║","╚═╝"],
+      "P": ["╔═╗","║ ║","╠═╝","║  ","║  "],
+      "Q": ["╔═╗","║ ║","║ ║","║ ╚","╚═╝"],
+      "R": ["╔═╗","║ ║","╠═╝","║╚ ","║ ╚"],
+      "S": ["╔══","╚═╗","  ║","══╝","   "],
+      "T": ["═══","░║░","░║░","░║░","░║░"],
+      "U": ["║ ║","║ ║","║ ║","║ ║","╚═╝"],
+      "V": ["║ ║","║ ║","║ ║","╚╗╔","░╚╝"],
+      "W": ["║  ║","║  ║","║  ║","║╚╝║","╚  ╝"],
+      "X": ["╗ ╔"," ╳ ","╔ ╗","╝ ╚","   "],
+      "Y": ["╗ ╔"," ╳ "," ║ "," ║ "," ║ "],
+      "Z": ["═══","  ╔","░╔╝","╔╝░","═══"],
+      "0": ["╔═╗","║╲║","║ ║","║╱║","╚═╝"],
+      "1": ["░╔╗","░░║","░░║","░░║","░╚╝"],
+      "2": ["╔═╗","░░║","╔═╝","║░░","╚══"],
+      "3": ["╔═╗","░░║","░╠╣","░░║","╚═╝"],
+      "4": ["║░║","║░║","╚═╣","░░║","░░║"],
+      "5": ["╔══","╚═╗","░░║","░░║","╚═╝"],
+      "6": ["╔══","║░░","╠═╗","║░║","╚═╝"],
+      "7": ["═══","░░║","░╔╝","░║░","░║░"],
+      "8": ["╔═╗","╠═╣","║░║","╠═╣","╚═╝"],
+      "9": ["╔═╗","║░║","╚═╣","░░║","╚═╝"],
+      " ": ["  ","  ","  ","  ","  "],
+      "!": ["║","║","║"," ","○"],
+      "?": ["╔═╗"," ╔╝"," ║ "," ░ "," ○ "],
+      ".": [" "," "," "," ","○"],
+      ",": [" "," "," ","○","╱"],
+      "-": ["   ","   ","═══","   ","   "],
+      "'": ["╗"," "," "," "," "],
+      ":": [" ","○"," ","○"," "]
+    }
+  };
+
+  // ---- TINY (compact 3-row display for dense output) ----
+  FONTS.tiny = {
+    height: 3,
+    glyphs: {
+      "A": ["▛▀▜","▙▄▟","▘ ▝"],
+      "B": ["▛▀▖","▙▄▘","▀▀▘"],
+      "C": ["▛▀▘","▌  ","▙▄▖"],
+      "D": ["▛▀▖","▌ ▌","▙▄▘"],
+      "E": ["▛▀▘","▙▄ ","▙▄▖"],
+      "F": ["▛▀▘","▙▄ ","▘  "],
+      "G": ["▛▀▘","▌▄▖","▙▄▘"],
+      "H": ["▌ ▌","▙▄▟","▘ ▝"],
+      "I": ["▀▛▀","░▌░","▄▙▄"],
+      "J": ["░░▌","░░▌","▙▄▘"],
+      "K": ["▌▞▘","▛▚ ","▘░▚"],
+      "L": ["▌░░","▌░░","▙▄▖"],
+      "M": ["▛▄▜","▌▀▌","▘░▝"],
+      "N": ["▛▖▌","▌▝▖","▘░▝"],
+      "O": ["▛▀▜","▌ ▌","▙▄▟"],
+      "P": ["▛▀▜","▙▄▛","▘░░"],
+      "Q": ["▛▀▜","▌ ▌","▙▄▟",],
+      "R": ["▛▀▜","▙▄▛","▘▝▖"],
+      "S": ["▛▀▘","▝▀▖","▄▄▟"],
+      "T": ["▀▛▀","░▌░","░▌░"],
+      "U": ["▌ ▌","▌ ▌","▙▄▟"],
+      "V": ["▌ ▌","▚ ▞","░▚▞"],
+      "W": ["▌ ▌","▌▄▌","▚▀▞"],
+      "X": ["▚ ▞","░▚▞","▞ ▚"],
+      "Y": ["▚ ▞","░▚▞","░░▌"],
+      "Z": ["▀▀▞","░▄▘","▙▄▄"],
+      "0": ["▛▀▜","▌▞▌","▙▄▟"],
+      "1": ["░▞▌","░░▌","▄▙▄"],
+      "2": ["▛▀▜","░▄▛","▙▄▄"],
+      "3": ["▀▀▜","░▄▛","▄▄▟"],
+      "4": ["▌░▌","▙▄▌","░░▌"],
+      "5": ["▛▀▀","▜▄░","▄▄▛"],
+      "6": ["▛▀▀","▙▄▜","▙▄▟"],
+      "7": ["▀▀▜","░▄▘","░▌░"],
+      "8": ["▛▀▜","▙▄▟","▙▄▟"],
+      "9": ["▛▀▜","▝▄▟","▄▄▟"],
+      " ": ["░░","░░","░░"],
+      "!": ["▌","▌","░"],
+      "?": ["▛▀▜","░▄▘","░▌░"],
+      ".": [" ","░","▖"],
+      ",": [" ","░","▞"],
+      "-": ["░░░","▀▀▀","░░░"],
+      "'": ["▘"," "," "],
+      ":": ["░","▖","▖"]
+    }
+  };
+
+  // build fallback for missing glyph per font, sized to font height with a filled box using representative char
+  function getGlyph(font, ch){
+    const upper = ch.toUpperCase();
+    if(font.glyphs[ch]) return font.glyphs[ch];
+    if(font.glyphs[upper]) return font.glyphs[upper];
+    // unknown char -> blank column block sized 3 wide
+    const w = 3;
+    const rows = [];
+    for(let i=0;i<font.height;i++) rows.push(" ".repeat(w));
+    return rows;
+  }
+
+  function renderText(str, fontKey){
+    const font = FONTS[fontKey] || FONTS.block;
+    if(!str || !str.length) return "";
+    const chars = str.split("");
+    const glyphRows = chars.map(c => getGlyph(font, c));
+    const lines = [];
+    for(let r=0;r<font.height;r++){
+      let line = "";
+      glyphRows.forEach((g, idx) => {
+        const rowStr = g[r] !== undefined ? g[r] : "";
+        line += rowStr;
+        line += " "; // inter-char gap
+      });
+      lines.push(line.replace(/\s+$/,"") === "" ? line : line);
+    }
+    // trim fully-empty trailing/leading? Keep as-is for consistent block.
+    return lines.join("\n");
+  }
+
+  const MIX_FONT_ORDER = Object.keys(FONTS);
+
+  // Font-mix: cycles a different font per character, bottom-aligning glyphs
+  // of differing heights onto one shared baseline so mixed heights still read cleanly.
+  function renderTextMixed(str, fontKey){
+    if(fontKey !== "mix") return renderText(str, fontKey);
+    if(!str || !str.length) return "";
+    const chars = str.split("");
+    const maxHeight = Math.max(...MIX_FONT_ORDER.map(k => FONTS[k].height));
+    const glyphCols = chars.map((c, i) => {
+      const fontKey2 = MIX_FONT_ORDER[i % MIX_FONT_ORDER.length];
+      const font = FONTS[fontKey2];
+      const rows = getGlyph(font, c);
+      const w = Math.max(...rows.map(r => r.length));
+      const padTop = maxHeight - font.height;
+      const padded = [];
+      for(let i2=0;i2<padTop;i2++) padded.push(" ".repeat(w));
+      rows.forEach(r => padded.push(r.length < w ? r + " ".repeat(w - r.length) : r));
+      return padded;
+    });
+    const lines = [];
+    for(let r=0;r<maxHeight;r++){
+      let line = "";
+      glyphCols.forEach(col => { line += col[r]; line += " "; });
+      lines.push(line);
+    }
+    return lines.join("\n");
+  }
+
+  /* =========================================================
+     COLOR MODES
+     ========================================================= */
+  const COLOR_MODES = [
+    { id: "phosphor", label: "Phosphor" },
+    { id: "cyan", label: "Cyan" },
+    { id: "amber", label: "Amber" },
+    { id: "gradient", label: "Gradient" },
+    { id: "rainbow", label: "Rainbow" },
+    { id: "matrix", label: "Matrix" },
+    { id: "glitch", label: "Glitch" },
+    { id: "mono", label: "Mono" },
+    { id: "ocean", label: "Ocean" },
+    { id: "sunset", label: "Sunset" },
+    { id: "toxic", label: "Toxic" },
+    { id: "ember", label: "Ember" },
+    { id: "plasma", label: "Plasma", animated: true },
+    { id: "pulse", label: "Pulse", animated: true },
+    { id: "wave", label: "Wave", animated: true }
+  ];
+  const ANIMATED_MODE_IDS = new Set(COLOR_MODES.filter(m => m.animated).map(m => m.id));
+
+  function hslToHex(h, s, l){
+    s/=100; l/=100;
+    const k = n => (n + h/30) % 12;
+    const a = s * Math.min(l, 1-l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+    const toHex = x => Math.round(255*x).toString(16).padStart(2,"0");
+    return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+  }
+
+  function lerpColor(hexA, hexB, t){
+    const a = parseInt(hexA.slice(1),16), b = parseInt(hexB.slice(1),16);
+    const ar=(a>>16)&255, ag=(a>>8)&255, ab=a&255;
+    const br=(b>>16)&255, bg=(b>>8)&255, bb=b&255;
+    const r = Math.round(ar + (br-ar)*t);
+    const g = Math.round(ag + (bg-ag)*t);
+    const bl = Math.round(ab + (bb-ab)*t);
+    return `rgb(${r},${g},${bl})`;
+  }
+
+  function colorForCell(mode, colIndex, totalCols, rowIndex, totalRows, ch, time){
+    if(ch === " ") return null;
+    time = time || 0;
+    switch(mode){
+      case "phosphor": return "#4ee08a";
+      case "cyan": return "#4fd8e0";
+      case "amber": return "#d9a55a";
+      case "mono": return "#c3d9cd";
+      case "matrix": {
+        // vertical-ish falloff green shades based on row
+        const shades = ["#1e8f52","#4ee08a","#8bffb8","#4ee08a","#1e8f52","#0a5c30"];
+        return shades[rowIndex % shades.length];
+      }
+      case "gradient": {
+        const t = totalCols <= 1 ? 0 : colIndex/(totalCols-1);
+        return lerpColor("#4ee08a", "#4fd8e0", t);
+      }
+      case "rainbow": {
+        const t = totalCols <= 1 ? 0 : colIndex/(totalCols-1);
+        const hue = (t*300); // avoid wrapping back to red for a cleaner spectrum
+        return hslToHex(hue, 80, 58);
+      }
+      case "glitch": {
+        // mostly phosphor, with occasional cyan/danger corruption flecks
+        const seed = (colIndex * 7 + rowIndex * 13) % 23;
+        if(seed === 0) return "#4fd8e0";
+        if(seed === 11) return "#c65f5f";
+        return "#4ee08a";
+      }
+      case "ocean": {
+        const t = totalRows <= 1 ? 0 : rowIndex/(totalRows-1);
+        return lerpColor("#2a6fb0", "#4fe0d0", t);
+      }
+      case "sunset": {
+        const t = totalCols <= 1 ? 0 : colIndex/(totalCols-1);
+        return lerpColor("#e05d5d", "#f0b354", t);
+      }
+      case "toxic": {
+        const t = totalRows <= 1 ? 0 : rowIndex/(totalRows-1);
+        return lerpColor("#c8e04e", "#5ba82e", t);
+      }
+      case "ember": {
+        const t = totalRows <= 1 ? 0 : rowIndex/(totalRows-1);
+        return lerpColor("#f0c94e", "#b0311e", t);
+      }
+      case "plasma": {
+        // classic plasma field: sum of sines over position and time
+        const nx = totalCols <= 1 ? 0 : colIndex/(totalCols-1);
+        const ny = totalRows <= 1 ? 0 : rowIndex/(totalRows-1);
+        const v = Math.sin(nx*6 + time*1.6) + Math.sin(ny*6 + time*1.3) + Math.sin((nx+ny)*6 + time*2.1);
+        const hue = ((v + 3) / 6) * 300;
+        return hslToHex(hue, 85, 58);
+      }
+      case "pulse": {
+        // whole field pulses brightness in and out together, phosphor hue
+        const wave = (Math.sin(time*3) + 1) / 2; // 0..1
+        const l = 35 + wave * 35;
+        return hslToHex(150, 75, l);
+      }
+      case "wave": {
+        // a bright band travels across columns over time
+        const nx = totalCols <= 1 ? 0 : colIndex/(totalCols-1);
+        const phase = (nx*4 - time*2) % (Math.PI*2);
+        const v = (Math.sin(phase) + 1) / 2;
+        const l = 30 + v * 40;
+        return hslToHex(165, 80, l);
+      }
+      default: return "#4ee08a";
+    }
+  }
+
+  function glowStyle(level){
+    // level 0,1,2
+    if(level === 0) return "none";
+    if(level === 1) return "0 0 6px currentColor";
+    return "0 0 6px currentColor, 0 0 16px currentColor";
+  }
+
+  /* =========================================================
+     MINIMAL GIF89a ENCODER
+     A small from-scratch animated GIF writer: builds a global
+     color table from the actual frame pixels (up to 256 colors),
+     LZW-compresses each frame's index stream, and assembles the
+     GIF89a byte structure directly. No external library involved.
+     ========================================================= */
+  function buildGifPalette(frames){
+    // frames: array of {width, height, pixels: Uint8ClampedArray RGBA}
+    const colorSet = new Map();
+    frames.forEach(f => {
+      for(let i=0;i<f.pixels.length;i+=4){
+        const r = f.pixels[i], g = f.pixels[i+1], b = f.pixels[i+2];
+        const key = (r<<16)|(g<<8)|b;
+        if(!colorSet.has(key)) colorSet.set(key, colorSet.size);
+      }
+    });
+    // if too many unique colors, quantize by reducing bit depth and retry
+    if(colorSet.size > 256){
+      const quantSet = new Map();
+      frames.forEach(f => {
+        for(let i=0;i<f.pixels.length;i+=4){
+          const r = f.pixels[i] & 0xF0, g = f.pixels[i+1] & 0xF0, b = f.pixels[i+2] & 0xF0;
+          const key = (r<<16)|(g<<8)|b;
+          if(!quantSet.has(key)) quantSet.set(key, quantSet.size);
+          if(quantSet.size >= 256) break;
+        }
+      });
+      return quantSet;
+    }
+    return colorSet;
+  }
+
+  function lzwEncode(indices, minCodeSize){
+    const clearCode = 1 << minCodeSize;
+    const endCode = clearCode + 1;
+    let codeSize = minCodeSize + 1;
+    let dict = new Map();
+    let nextCode = endCode + 1;
+    const out = [];
+    let bitBuf = 0, bitCount = 0;
+
+    function emit(code){
+      bitBuf |= (code << bitCount);
+      bitCount += codeSize;
+      while(bitCount >= 8){
+        out.push(bitBuf & 0xFF);
+        bitBuf >>= 8;
+        bitCount -= 8;
+      }
+    }
+    function resetDict(){
+      dict = new Map();
+      for(let i=0;i<clearCode;i++) dict.set(String(i), i);
+      nextCode = endCode + 1;
+      codeSize = minCodeSize + 1;
+    }
+
+    resetDict();
+    emit(clearCode);
+    let w = "";
+    for(let i=0;i<indices.length;i++){
+      const k = indices[i];
+      const wk = w === "" ? String(k) : w + "," + k;
+      if(dict.has(wk)){
+        w = wk;
+      } else {
+        emit(dict.get(w));
+        if(nextCode < 4096){
+          dict.set(wk, nextCode);
+          nextCode++;
+          if(nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+        } else {
+          emit(clearCode);
+          resetDict();
+        }
+        w = String(k);
+      }
+    }
+    if(w !== "") emit(dict.get(w));
+    emit(endCode);
+    if(bitCount > 0) out.push(bitBuf & 0xFF);
+    return out;
+  }
+
+  function encodeGif(frames, delayCentiseconds){
+    // frames: [{width, height, pixels: Uint8ClampedArray RGBA}], all same width/height
+    const width = frames[0].width, height = frames[0].height;
+    const paletteMap = buildGifPalette(frames);
+    // determine whether we used the quantized (nibble-masked) palette by re-checking size
+    const usedQuant = paletteMap.size <= 256 && frames.some(f => {
+      for(let i=0;i<f.pixels.length;i+=4){
+        const r = f.pixels[i], g = f.pixels[i+1], b = f.pixels[i+2];
+        const key = (r<<16)|(g<<8)|b;
+        if(!paletteMap.has(key)) return true;
+      }
+      return false;
+    });
+
+    function colorKey(r,g,b){
+      if(usedQuant) return ((r&0xF0)<<16)|((g&0xF0)<<8)|(b&0xF0);
+      return (r<<16)|(g<<8)|b;
+    }
+
+    const paletteSize = Math.max(2, paletteMap.size);
+    let bitsNeeded = Math.ceil(Math.log2(paletteSize));
+    if(bitsNeeded < 1) bitsNeeded = 1;
+    const tableSize = 1 << bitsNeeded;
+
+    const bytes = [];
+    function pushStr(s){ for(let i=0;i<s.length;i++) bytes.push(s.charCodeAt(i)); }
+    function pushByte(b){ bytes.push(b & 0xFF); }
+    function pushShort(v){ bytes.push(v & 0xFF); bytes.push((v>>8) & 0xFF); }
+
+    // Header
+    pushStr("GIF89a");
+    pushShort(width);
+    pushShort(height);
+    // GCT flag=1, color res=7, sort=0, size=bitsNeeded-1
+    pushByte(0x80 | (7 << 4) | (bitsNeeded - 1));
+    pushByte(0); // bg color index
+    pushByte(0); // pixel aspect ratio
+
+    // Global Color Table
+    const paletteArr = new Array(tableSize).fill(null).map(() => [0,0,0]);
+    for(const [key, idx] of paletteMap.entries()){
+      const r = (key >> 16) & 0xFF, g = (key >> 8) & 0xFF, b = key & 0xFF;
+      paletteArr[idx] = [r,g,b];
+    }
+    paletteArr.forEach(([r,g,b]) => { pushByte(r); pushByte(g); pushByte(b); });
+
+    // Application Extension for looping
+    pushByte(0x21); pushByte(0xFF); pushByte(11);
+    pushStr("NETSCAPE2.0");
+    pushByte(3); pushByte(1); pushShort(0); pushByte(0);
+
+    frames.forEach(frame => {
+      // Graphic Control Extension
+      pushByte(0x21); pushByte(0xF9); pushByte(4);
+      pushByte(0x00); // no transparency, no disposal specified
+      pushShort(delayCentiseconds);
+      pushByte(0); // transparent color index (unused)
+      pushByte(0);
+
+      // Image Descriptor
+      pushByte(0x2C);
+      pushShort(0); pushShort(0);
+      pushShort(width); pushShort(height);
+      pushByte(0); // no local color table
+
+      // Build index stream
+      const indices = new Array(width*height);
+      for(let i=0, p=0; i<frame.pixels.length; i+=4, p++){
+        const r = frame.pixels[i], g = frame.pixels[i+1], b = frame.pixels[i+2];
+        const key = colorKey(r,g,b);
+        indices[p] = paletteMap.get(key) || 0;
+      }
+
+      const minCodeSize = Math.max(2, bitsNeeded);
+      pushByte(minCodeSize);
+      const lzwBytes = lzwEncode(indices, minCodeSize);
+      let pos = 0;
+      while(pos < lzwBytes.length){
+        const chunk = lzwBytes.slice(pos, pos+255);
+        pushByte(chunk.length);
+        chunk.forEach(b => pushByte(b));
+        pos += 255;
+      }
+      pushByte(0); // block terminator
+    });
+
+    pushByte(0x3B); // trailer
+    return new Uint8Array(bytes);
+  }
+
+  /* =========================================================
+     DOM WIRING
+     ========================================================= */
+  const inputText = document.getElementById("inputText");
+  const fontSelect = document.getElementById("fontSelect");
+  const colorChipsWrap = document.getElementById("colorChips");
+  const glowSlider = document.getElementById("glowSlider");
+  const glowVal = document.getElementById("glowVal");
+  const output = document.getElementById("output");
+  const emptyState = document.getElementById("emptyState");
+  const dimsInfo = document.getElementById("dimsInfo");
+  const statusText = document.getElementById("statusText");
+  const statusDot = document.getElementById("statusDot");
+  const renderBtn = document.getElementById("renderBtn");
+  const copyBtn = document.getElementById("copyBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const downloadPngBtn = document.getElementById("downloadPngBtn");
+  const downloadGifBtn = document.getElementById("downloadGifBtn");
+  const randomBtn = document.getElementById("randomBtn");
+  const bootLine = document.getElementById("bootLine");
+  const tabText = document.getElementById("tabText");
+  const tabImage = document.getElementById("tabImage");
+  const tabWebcam = document.getElementById("tabWebcam");
+  const panelText = document.getElementById("panelText");
+  const panelImage = document.getElementById("panelImage");
+  const panelWebcam = document.getElementById("panelWebcam");
+  const dropZone = document.getElementById("dropZone");
+  const dropLabel = document.getElementById("dropLabel");
+  const imageInput = document.getElementById("imageInput");
+  const imgWidthSlider = document.getElementById("imgWidthSlider");
+  const imgWidthVal = document.getElementById("imgWidthVal");
+  const rampChipsWrap = document.getElementById("rampChips");
+  const invertCheck = document.getElementById("invertCheck");
+  const historyWrap = document.getElementById("historyWrap");
+  const historyStrip = document.getElementById("historyStrip");
+  const pngCanvas = document.getElementById("pngCanvas");
+  const camVideo = document.getElementById("camVideo");
+  const camCanvas = document.getElementById("camCanvas");
+  const webcamStatus = document.getElementById("webcamStatus");
+  const webcamBox = webcamStatus ? webcamStatus.parentElement : null;
+  const camWidthSlider = document.getElementById("camWidthSlider");
+  const camWidthVal = document.getElementById("camWidthVal");
+  const camRampChipsWrap = document.getElementById("camRampChips");
+  const camStartBtn = document.getElementById("camStartBtn");
+  const camStopBtn = document.getElementById("camStopBtn");
+
+  let state = {
+    mode: "text",
+    font: "block",
+    color: "phosphor",
+    glow: 1,
+    imgWidth: 80,
+    ramp: "standard",
+    invert: false,
+    camWidth: 70,
+    camRamp: "standard"
+  };
+
+  let imageArtLines = null; // set when in image mode, holds rendered rows (plain chars, uniform grid)
+  let history = []; // { label, mode, snapshot: {..state fields relevant..}, text (for text mode) }
+
+  /* ---- font + color chip population ---- */
+  Object.keys(FONTS).forEach(key => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = key.toUpperCase();
+    fontSelect.appendChild(opt);
+  });
+  const mixOpt = document.createElement("option");
+  mixOpt.value = "mix";
+  mixOpt.textContent = "MIX (all fonts)";
+  fontSelect.appendChild(mixOpt);
+  fontSelect.value = state.font;
+
+  COLOR_MODES.forEach(mode => {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (mode.id === state.color ? " active" : "");
+    chip.textContent = mode.label;
+    chip.dataset.mode = mode.id;
+    chip.addEventListener("click", () => {
+      state.color = mode.id;
+      [...colorChipsWrap.children].forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      draw();
+    });
+    colorChipsWrap.appendChild(chip);
+  });
+
+  /* ---- ASCII ramps for image mode (dark -> light order irrelevant, we map by brightness) ---- */
+  const RAMPS = {
+    standard: { label: "Standard", chars: " .:-=+*#%@" },
+    blocks:   { label: "Blocks",   chars: " ░▒▓█" },
+    binary:   { label: "Binary",   chars: " 01" },
+    minimal:  { label: "Minimal",  chars: " .oO#" }
+  };
+  Object.keys(RAMPS).forEach(key => {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (key === state.ramp ? " active" : "");
+    chip.textContent = RAMPS[key].label;
+    chip.dataset.ramp = key;
+    chip.addEventListener("click", () => {
+      state.ramp = key;
+      [...rampChipsWrap.children].forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      if(state.mode === "image" && imageArtLines) convertCurrentImage();
+    });
+    rampChipsWrap.appendChild(chip);
+  });
+
+  Object.keys(RAMPS).forEach(key => {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (key === state.camRamp ? " active" : "");
+    chip.textContent = RAMPS[key].label;
+    chip.dataset.ramp = key;
+    chip.addEventListener("click", () => {
+      state.camRamp = key;
+      [...camRampChipsWrap.children].forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+    });
+    camRampChipsWrap.appendChild(chip);
+  });
+
+  const GLOW_LABELS = ["off","low","high"];
+  function updateGlowLabel(){
+    glowVal.textContent = GLOW_LABELS[state.glow];
+  }
+  updateGlowLabel();
+
+  glowSlider.addEventListener("input", () => {
+    state.glow = parseInt(glowSlider.value, 10);
+    updateGlowLabel();
+    draw();
+  });
+  fontSelect.addEventListener("change", () => {
+    state.font = fontSelect.value;
+    draw(true);
+  });
+
+  /* ---- mode tabs ---- */
+  function setMode(mode){
+    const previousMode = state.mode;
+    state.mode = mode;
+    tabText.classList.toggle("active", mode === "text");
+    tabImage.classList.toggle("active", mode === "image");
+    tabWebcam.classList.toggle("active", mode === "webcam");
+    panelText.style.display = mode === "text" ? "" : "none";
+    panelImage.style.display = mode === "image" ? "" : "none";
+    panelWebcam.style.display = mode === "webcam" ? "" : "none";
+    fontSelect.parentElement.style.display = mode === "text" ? "" : "none";
+
+    if(previousMode === "webcam" && mode !== "webcam"){
+      stopWebcam();
+    }
+
+    if(mode === "text"){
+      imageArtLines = null;
+      draw(true);
+    } else if(mode === "image"){
+      if(imageArtLines) drawImageArt();
+      else {
+        output.style.display = "none";
+        emptyState.style.display = "block";
+        emptyState.textContent = "no image loaded";
+        statusText.textContent = "idle";
+        statusDot.classList.remove("live");
+        dimsInfo.textContent = "";
+      }
+    } else if(mode === "webcam"){
+      if(webcamStream){
+        // already running, keep showing frames
+      } else {
+        output.style.display = "none";
+        emptyState.style.display = "block";
+        emptyState.textContent = "camera not started";
+        statusText.textContent = "idle";
+        statusDot.classList.remove("live");
+        dimsInfo.textContent = "";
+      }
+    }
+  }
+  tabText.addEventListener("click", () => setMode("text"));
+  tabImage.addEventListener("click", () => setMode("image"));
+  tabWebcam.addEventListener("click", () => setMode("webcam"));
+
+  /* ---- image mode: drop zone + file handling ---- */
+  let currentImageEl = null;
+
+  dropZone.addEventListener("click", () => imageInput.click());
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(file) loadImageFile(file);
+  });
+  imageInput.addEventListener("change", () => {
+    const file = imageInput.files && imageInput.files[0];
+    if(file) loadImageFile(file);
+  });
+
+  function loadImageFile(file){
+    if(!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        currentImageEl = img;
+        dropZone.classList.add("has-file");
+        dropLabel.textContent = file.name;
+        convertCurrentImage();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  imgWidthSlider.addEventListener("input", () => {
+    state.imgWidth = parseInt(imgWidthSlider.value, 10);
+    imgWidthVal.textContent = state.imgWidth;
+    if(currentImageEl) convertCurrentImage();
+  });
+  invertCheck.addEventListener("change", () => {
+    state.invert = invertCheck.checked;
+    if(currentImageEl) convertCurrentImage();
+  });
+
+  function convertCurrentImage(){
+    if(!currentImageEl) return;
+    const img = currentImageEl;
+    const targetW = state.imgWidth;
+    // character cells are taller than wide, compensate aspect ratio
+    const charAspect = 0.55;
+    const targetH = Math.max(1, Math.round((img.height / img.width) * targetW * charAspect));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    const data = ctx.getImageData(0, 0, targetW, targetH).data;
+
+    const ramp = RAMPS[state.ramp].chars;
+    const rampLen = ramp.length;
+    const lines = [];
+    for(let y = 0; y < targetH; y++){
+      let line = "";
+      for(let x = 0; x < targetW; x++){
+        const idx = (y * targetW + x) * 4;
+        const r = data[idx], g = data[idx+1], b = data[idx+2];
+        let brightness = (0.299*r + 0.587*g + 0.114*b) / 255;
+        if(state.invert) brightness = 1 - brightness;
+        const charIdx = Math.min(rampLen - 1, Math.floor(brightness * rampLen));
+        line += ramp[charIdx];
+      }
+      lines.push(line);
+    }
+    imageArtLines = lines;
+    drawImageArt();
+  }
+
+  function drawImageArt(){
+    if(!imageArtLines) return;
+    const totalCols = Math.max(...imageArtLines.map(l => l.length));
+    const totalRows = imageArtLines.length;
+    output.innerHTML = "";
+    const glow = glowStyle(state.glow);
+    const time = state.animTime || 0;
+
+    imageArtLines.forEach((line, rowIndex) => {
+      const rowFrag = document.createDocumentFragment();
+      for(let c=0;c<line.length;c++){
+        const ch = line[c];
+        const span = document.createElement("span");
+        span.textContent = ch;
+        const color = colorForCell(state.color, c, totalCols, rowIndex, totalRows, ch === " " ? " " : "x", time);
+        if(color && ch !== " "){
+          span.style.color = color;
+          span.style.textShadow = glow === "none" ? "none" : glow;
+        }
+        rowFrag.appendChild(span);
+      }
+      output.appendChild(rowFrag);
+      if(rowIndex < imageArtLines.length - 1){
+        output.appendChild(document.createTextNode("\n"));
+      }
+    });
+
+    output.style.display = "inline-block";
+    output.classList.toggle("glitch-anim", state.color === "glitch");
+    emptyState.style.display = "none";
+    dimsInfo.textContent = `image · ${totalCols}×${totalRows}`;
+    statusText.textContent = "converted";
+    statusDot.classList.add("live");
+    refreshCodeExport();
+  }
+
+  /* ---- webcam mode: live getUserMedia capture -> ASCII ---- */
+  let webcamStream = null;
+  let webcamFrameId = null;
+
+  camWidthSlider.addEventListener("input", () => {
+    state.camWidth = parseInt(camWidthSlider.value, 10);
+    camWidthVal.textContent = state.camWidth;
+  });
+
+  camStartBtn.addEventListener("click", () => startWebcam());
+  camStopBtn.addEventListener("click", () => stopWebcam());
+
+  async function startWebcam(){
+    if(webcamStream) return;
+    webcamStatus.textContent = "requesting camera...";
+    try{
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      camVideo.srcObject = webcamStream;
+      await camVideo.play();
+      if(webcamBox) webcamBox.classList.add("live");
+      webcamStatus.textContent = "camera live";
+      webcamCaptureLoop();
+    }catch(err){
+      webcamStatus.textContent = "camera access denied or unavailable";
+      webcamStream = null;
+    }
+  }
+
+  function stopWebcam(){
+    if(webcamFrameId !== null){
+      cancelAnimationFrame(webcamFrameId);
+      webcamFrameId = null;
+    }
+    if(webcamStream){
+      webcamStream.getTracks().forEach(track => track.stop());
+      webcamStream = null;
+    }
+    if(webcamBox) webcamBox.classList.remove("live");
+    webcamStatus.textContent = "camera not started";
+    webcamArtLines = null;
+    if(state.mode === "webcam"){
+      output.style.display = "none";
+      emptyState.style.display = "block";
+      emptyState.textContent = "camera not started";
+      statusText.textContent = "idle";
+      statusDot.classList.remove("live");
+      dimsInfo.textContent = "";
+    }
+  }
+
+  let webcamArtLines = null;
+
+  function webcamCaptureLoop(){
+    if(!webcamStream || !camVideo.videoWidth){
+      webcamFrameId = requestAnimationFrame(webcamCaptureLoop);
+      return;
+    }
+    const targetW = state.camWidth;
+    const charAspect = 0.55;
+    const targetH = Math.max(1, Math.round((camVideo.videoHeight / camVideo.videoWidth) * targetW * charAspect));
+
+    camCanvas.width = targetW;
+    camCanvas.height = targetH;
+    const ctx = camCanvas.getContext("2d");
+    // mirror horizontally for a natural "selfie" view
+    ctx.save();
+    ctx.translate(targetW, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(camVideo, 0, 0, targetW, targetH);
+    ctx.restore();
+
+    const data = ctx.getImageData(0, 0, targetW, targetH).data;
+    const ramp = RAMPS[state.camRamp].chars;
+    const rampLen = ramp.length;
+    const lines = [];
+    for(let y = 0; y < targetH; y++){
+      let line = "";
+      for(let x = 0; x < targetW; x++){
+        const idx = (y * targetW + x) * 4;
+        const r = data[idx], g = data[idx+1], b = data[idx+2];
+        const brightness = (0.299*r + 0.587*g + 0.114*b) / 255;
+        const charIdx = Math.min(rampLen - 1, Math.floor(brightness * rampLen));
+        line += ramp[charIdx];
+      }
+      lines.push(line);
+    }
+    webcamArtLines = lines;
+    if(state.mode === "webcam") drawWebcamArt();
+    webcamFrameId = requestAnimationFrame(webcamCaptureLoop);
+  }
+
+  function drawWebcamArt(){
+    if(!webcamArtLines) return;
+    const totalCols = Math.max(...webcamArtLines.map(l => l.length));
+    const totalRows = webcamArtLines.length;
+    output.innerHTML = "";
+    const glow = glowStyle(state.glow);
+    const time = state.animTime || 0;
+
+    webcamArtLines.forEach((line, rowIndex) => {
+      const rowFrag = document.createDocumentFragment();
+      for(let c=0;c<line.length;c++){
+        const ch = line[c];
+        const span = document.createElement("span");
+        span.textContent = ch;
+        const color = colorForCell(state.color, c, totalCols, rowIndex, totalRows, ch === " " ? " " : "x", time);
+        if(color && ch !== " "){
+          span.style.color = color;
+          span.style.textShadow = glow === "none" ? "none" : glow;
+        }
+        rowFrag.appendChild(span);
+      }
+      output.appendChild(rowFrag);
+      if(rowIndex < webcamArtLines.length - 1){
+        output.appendChild(document.createTextNode("\n"));
+      }
+    });
+
+    output.style.display = "inline-block";
+    output.classList.toggle("glitch-anim", state.color === "glitch");
+    emptyState.style.display = "none";
+    dimsInfo.textContent = `webcam · ${totalCols}×${totalRows}`;
+    statusText.textContent = "live";
+    statusDot.classList.add("live");
+  }
+
+  /* ---- text mode: multi-line render ---- */
+  /* ---- text mode: multi-line render ---- */
+  function draw(playEntrance){
+    if(state.mode !== "text") return;
+    const raw = inputText.value;
+    if(!raw || !raw.trim()){
+      output.style.display = "none";
+      output.classList.remove("glitch-anim");
+      emptyState.style.display = "block";
+      emptyState.textContent = "awaiting input";
+      dimsInfo.textContent = "";
+      statusText.textContent = "idle";
+      statusDot.classList.remove("live");
+      refreshCodeExport();
+      return;
+    }
+    const inputLines = raw.split("\n").filter((l, i, arr) => !(l === "" && i === arr.length - 1));
+    const perLineArt = inputLines.map(l => renderTextMixed(l.toUpperCase(), state.font));
+    const allLines = [];
+    perLineArt.forEach((block, i) => {
+      allLines.push(...block.split("\n"));
+      if(i < perLineArt.length - 1) allLines.push(""); // blank spacer row between text lines
+    });
+
+    const totalCols = Math.max(1, ...allLines.map(l => l.length));
+    const totalRows = allLines.length;
+
+    output.innerHTML = "";
+    const glow = glowStyle(state.glow);
+    const time = state.animTime || 0;
+
+    allLines.forEach((line, rowIndex) => {
+      const rowFrag = document.createDocumentFragment();
+      const padded = line; // keep as-is; empty spacer rows render as empty line
+      for(let c=0;c<padded.length;c++){
+        const ch = padded[c];
+        const span = document.createElement("span");
+        span.textContent = ch === " " ? " " : ch;
+        const color = colorForCell(state.color, c, totalCols, rowIndex, totalRows, ch, time);
+        if(color){
+          span.style.color = color;
+          span.style.textShadow = glow === "none" ? "none" : glow;
+        }
+        if(playEntrance && ch !== " "){
+          span.classList.add("glyph-enter");
+          // stagger by column, left to right, so the word builds itself in
+          span.style.animationDelay = (c * 18) + "ms";
+        }
+        rowFrag.appendChild(span);
+      }
+      output.appendChild(rowFrag);
+      if(rowIndex < allLines.length - 1){
+        output.appendChild(document.createTextNode("\n"));
+      }
+    });
+
+    output.style.display = "inline-block";
+    output.classList.toggle("glitch-anim", state.color === "glitch");
+    emptyState.style.display = "none";
+    dimsInfo.textContent = `${state.font} · ${totalCols}×${totalRows}`;
+    statusText.textContent = "rendered";
+    statusDot.classList.add("live");
+    if(playEntrance) refreshCodeExport();
+  }
+
+  function plainArt(){
+    if(state.mode === "image"){
+      return imageArtLines ? imageArtLines.join("\n") : "";
+    }
+    if(state.mode === "webcam"){
+      return webcamArtLines ? webcamArtLines.join("\n") : "";
+    }
+    const raw = inputText.value;
+    if(!raw || !raw.trim()) return "";
+    const inputLines = raw.split("\n").filter((l, i, arr) => !(l === "" && i === arr.length - 1));
+    const perLineArt = inputLines.map(l => renderTextMixed(l.toUpperCase(), state.font));
+    return perLineArt.join("\n\n");
+  }
+
+  function exportBaseName(){
+    if(state.mode === "image") return "ascii_image";
+    if(state.mode === "webcam") return "ascii_webcam";
+    return inputText.value.trim().split("\n")[0];
+  }
+
+  /* ---- current render as a plain line array, for building colored exports ---- */
+  function currentArtLines(){
+    if(state.mode === "image"){
+      return imageArtLines || [];
+    }
+    if(state.mode === "webcam"){
+      return webcamArtLines || [];
+    }
+    const text = plainArt();
+    return text ? text.split("\n") : [];
+  }
+
+  /* =========================================================
+     TERMINAL CODE EXPORT
+     Snapshots the current render + its per-cell colors into a
+     standalone Python or Bash script that reprints the same
+     art (same colors, via ANSI 24-bit escapes) in a terminal.
+     ========================================================= */
+  function hexToRgb(colorStr){
+    // colorForCell returns either a "#rrggbb" hex string or a "rgb(r,g,b)" string
+    // (lerpColor / matrix / ocean / sunset / toxic / ember / gradient all use rgb(...)).
+    // Handle both so the code export never produces NaN channels.
+    const rgbMatch = colorStr.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+    if(rgbMatch){
+      return { r: parseInt(rgbMatch[1], 10), g: parseInt(rgbMatch[2], 10), b: parseInt(rgbMatch[3], 10) };
+    }
+    const clean = colorStr.replace("#", "");
+    return {
+      r: parseInt(clean.slice(0,2), 16),
+      g: parseInt(clean.slice(2,4), 16),
+      b: parseInt(clean.slice(4,6), 16)
+    };
+  }
+
+  // Build a list of colored rows: each row is a list of {text, color} runs,
+  // merging consecutive same-color characters into one run to keep the
+  // generated code short and readable.
+  function buildColoredRuns(){
+    const lines = currentArtLines();
+    if(!lines.length) return null;
+    const totalCols = Math.max(1, ...lines.map(l => l.length));
+    const totalRows = lines.length;
+    const time = state.animTime || 0;
+
+    return lines.map((line, rowIndex) => {
+      const runs = [];
+      let currentColor = null;
+      let currentText = "";
+      for(let c = 0; c < line.length; c++){
+        const ch = line[c];
+        const color = ch === " " ? null : colorForCell(state.color, c, totalCols, rowIndex, totalRows, ch, time);
+        if(color === currentColor){
+          currentText += ch;
+        } else {
+          if(currentText) runs.push({ text: currentText, color: currentColor });
+          currentText = ch;
+          currentColor = color;
+        }
+      }
+      if(currentText) runs.push({ text: currentText, color: currentColor });
+      return runs;
+    });
+  }
+
+  function escapePyString(s){
+    return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+  function escapeBashString(s){
+    return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+  }
+
+  function buildPythonScript(){
+    const rows = buildColoredRuns();
+    if(!rows) return "# no render to export yet";
+    const lines = [];
+    lines.push("#!/usr/bin/env python3");
+    lines.push("# Generated by ASCII::FORGE — prints this render with its colors in any ANSI terminal.");
+    lines.push('RESET = "\\033[0m"');
+    lines.push("");
+    lines.push("def rgb(r, g, b):");
+    lines.push('    return f"\\033[38;2;{r};{g};{b}m"');
+    lines.push("");
+    lines.push("rows = [");
+    rows.forEach(runs => {
+      const parts = runs.map(run => {
+        if(!run.color){
+          return `("${escapePyString(run.text)}", None)`;
+        }
+        const { r, g, b } = hexToRgb(run.color);
+        return `("${escapePyString(run.text)}", (${r}, ${g}, ${b}))`;
+      });
+      lines.push(`    [${parts.join(", ")}],`);
+    });
+    lines.push("]");
+    lines.push("");
+    lines.push("for row in rows:");
+    lines.push("    line = \"\"");
+    lines.push("    for text, color in row:");
+    lines.push("        if color is None:");
+    lines.push("            line += text");
+    lines.push("        else:");
+    lines.push("            line += rgb(*color) + text + RESET");
+    lines.push("    print(line)");
+    return lines.join("\n");
+  }
+
+  function buildBashScript(){
+    const rows = buildColoredRuns();
+    if(!rows) return "# no render to export yet";
+    const lines = [];
+    lines.push("#!/usr/bin/env bash");
+    lines.push("# Generated by ASCII::FORGE — prints this render with its colors in any ANSI terminal.");
+    lines.push('RESET="\\033[0m"');
+    lines.push("");
+    rows.forEach(runs => {
+      const parts = runs.map(run => {
+        if(!run.color){
+          return `printf "%s" "${escapeBashString(run.text)}"`;
+        }
+        const { r, g, b } = hexToRgb(run.color);
+        return `printf "\\033[38;2;${r};${g};${b}m%s\${RESET}" "${escapeBashString(run.text)}"`;
+      });
+      lines.push(parts.join("; "), "printf \"\\n\"");
+    });
+    return lines.join("\n");
+  }
+
+  const codeExportWrap = document.getElementById("codeExportWrap");
+  const langPython = document.getElementById("langPython");
+  const langBash = document.getElementById("langBash");
+  const codeBlockContent = document.getElementById("codeBlockContent");
+  const copyCodeBtn = document.getElementById("copyCodeBtn");
+  const downloadCodeBtn = document.getElementById("downloadCodeBtn");
+
+  state.exportLang = "python";
+
+  function highlightPython(code){
+    return code
+      .split("\n")
+      .map(line => {
+        const escaped = line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        if(/^\s*#/.test(line)) return `<span class="code-com">${escaped}</span>`;
+        return escaped
+          .replace(/\b(def|for|in|if|else|import|return|None)\b/g, '<span class="code-kw">$1</span>')
+          .replace(/(&quot;.*?&quot;|"(?:[^"\\]|\\.)*")/g, '<span class="code-str">$1</span>');
+      })
+      .join("\n");
+  }
+  function highlightBash(code){
+    return code
+      .split("\n")
+      .map(line => {
+        const escaped = line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        if(/^\s*#/.test(line)) return `<span class="code-com">${escaped}</span>`;
+        return escaped
+          .replace(/\b(printf|echo)\b/g, '<span class="code-kw">$1</span>')
+          .replace(/("(?:[^"\\]|\\.)*")/g, '<span class="code-str">$1</span>');
+      })
+      .join("\n");
+  }
+
+  function currentCode(){
+    return state.exportLang === "python" ? buildPythonScript() : buildBashScript();
+  }
+
+  function refreshCodeExport(){
+    const code = currentCode();
+    codeBlockContent.innerHTML = state.exportLang === "python" ? highlightPython(code) : highlightBash(code);
+  }
+
+  langPython.addEventListener("click", () => {
+    state.exportLang = "python";
+    langPython.classList.add("active");
+    langBash.classList.remove("active");
+    refreshCodeExport();
+  });
+  langBash.addEventListener("click", () => {
+    state.exportLang = "bash";
+    langBash.classList.add("active");
+    langPython.classList.remove("active");
+    refreshCodeExport();
+  });
+
+  copyCodeBtn.addEventListener("click", async () => {
+    const code = currentCode();
+    try{
+      await navigator.clipboard.writeText(code);
+      flashBtn(copyCodeBtn, "Copied");
+    }catch(e){
+      flashBtn(copyCodeBtn, "Failed");
+    }
+  });
+
+  downloadCodeBtn.addEventListener("click", () => {
+    const code = currentCode();
+    const ext = state.exportLang === "python" ? "py" : "sh";
+    const blob = new Blob([code], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (exportBaseName().toLowerCase().replace(/[^a-z0-9]+/g,"_") || "ascii_print") + "." + ext;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    flashBtn(downloadCodeBtn, "Saved");
+  });
+
+  renderBtn.addEventListener("click", () => {
+    if(state.mode === "text") draw(true);
+    else if(state.mode === "image" && currentImageEl) convertCurrentImage();
+    pushHistory();
+  });
+  inputText.addEventListener("input", () => draw(false));
+  inputText.addEventListener("keydown", e => {
+    if(e.key === "Enter" && (e.ctrlKey || e.metaKey)) draw(true);
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    const text = plainArt();
+    if(!text) return;
+    try{
+      await navigator.clipboard.writeText(text);
+      flashBtn(copyBtn, "Copied");
+    }catch(e){
+      flashBtn(copyBtn, "Failed");
+    }
+  });
+
+  downloadBtn.addEventListener("click", () => {
+    const text = plainArt();
+    if(!text) return;
+    const blob = new Blob([text], {type:"text/plain"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const nameSrc = exportBaseName();
+    a.download = (nameSrc.toLowerCase().replace(/[^a-z0-9]+/g,"_") || "ascii") + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    flashBtn(downloadBtn, "Saved");
+  });
+
+  downloadPngBtn.addEventListener("click", () => {
+    const text = plainArt();
+    if(!text) return;
+    renderPng(text);
+  });
+
+  function drawArtFrame(canvas, text, time){
+    const lines = text.split("\n");
+    const fontSize = 14;
+    const lineHeight = Math.round(fontSize * 1.15);
+    const charWidth = fontSize * 0.6;
+    const maxLineLen = Math.max(1, ...lines.map(l => l.length));
+    const paddingX = 40, paddingY = 40;
+
+    canvas.width = Math.ceil(maxLineLen * charWidth) + paddingX * 2;
+    canvas.height = lines.length * lineHeight + paddingY * 2;
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#030503";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `${fontSize}px "JetBrains Mono", "Consolas", monospace`;
+    ctx.textBaseline = "top";
+
+    const totalCols = maxLineLen;
+    const totalRows = lines.length;
+
+    lines.forEach((line, rowIndex) => {
+      for(let c = 0; c < line.length; c++){
+        const ch = line[c];
+        if(ch === " ") continue;
+        const color = colorForCell(state.color, c, totalCols, rowIndex, totalRows, ch, time);
+        ctx.fillStyle = color || "#4ee08a";
+        ctx.fillText(ch, paddingX + c * charWidth, paddingY + rowIndex * lineHeight);
+      }
+    });
+    return ctx;
+  }
+
+  function renderPng(text){
+    const canvas = pngCanvas;
+    drawArtFrame(canvas, text, state.animTime || 0);
+    canvas.toBlob(blob => {
+      if(!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const nameSrc = exportBaseName();
+      a.download = (nameSrc.toLowerCase().replace(/[^a-z0-9]+/g,"_") || "ascii") + ".png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      flashBtn(downloadPngBtn, "Saved");
+    });
+  }
+
+  downloadGifBtn.addEventListener("click", () => {
+    const text = plainArt();
+    if(!text) return;
+    if(!ANIMATED_MODE_IDS.has(state.color)){
+      flashBtn(downloadGifBtn, "Needs animated color");
+      return;
+    }
+    flashBtn(downloadGifBtn, "Rendering...");
+    const frameCount = 24;
+    const cycleDuration = 3.0; // seconds represented across the loop
+    const canvas = pngCanvas;
+    const frames = [];
+    for(let i=0;i<frameCount;i++){
+      const t = (i / frameCount) * cycleDuration;
+      const ctx = drawArtFrame(canvas, text, t);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      frames.push({ width: canvas.width, height: canvas.height, pixels: imgData.data });
+    }
+    const delayCentiseconds = Math.round((cycleDuration / frameCount) * 100);
+    const gifBytes = encodeGif(frames, delayCentiseconds);
+    const blob = new Blob([gifBytes], { type: "image/gif" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const nameSrc = exportBaseName();
+    a.download = (nameSrc.toLowerCase().replace(/[^a-z0-9]+/g,"_") || "ascii") + ".gif";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    flashBtn(downloadGifBtn, "Saved");
+  });
+
+  randomBtn.addEventListener("click", () => {
+    const fontKeys = [...Object.keys(FONTS), "mix"];
+    const nextFont = fontKeys[Math.floor(Math.random()*fontKeys.length)];
+    const nextColor = COLOR_MODES[Math.floor(Math.random()*COLOR_MODES.length)];
+    fontSelect.value = nextFont;
+    state.font = nextFont;
+    state.color = nextColor.id;
+    [...colorChipsWrap.children].forEach(c => c.classList.toggle("active", c.dataset.mode === nextColor.id));
+    state.glow = Math.floor(Math.random()*3);
+    glowSlider.value = state.glow;
+    updateGlowLabel();
+    if(state.mode === "text") draw(true);
+    else if(state.mode === "image" && imageArtLines) drawImageArt();
+    else if(state.mode === "webcam" && webcamArtLines) drawWebcamArt();
+    updateAnimationLoop();
+  });
+
+  /* ---- animation loop: only runs while an animated color mode is active ---- */
+  let animFrameId = null;
+  let animStartTime = null;
+  function animationTick(now){
+    if(!animStartTime) animStartTime = now;
+    state.animTime = (now - animStartTime) / 1000;
+    if(state.mode === "text") draw(false);
+    else if(state.mode === "image" && imageArtLines) drawImageArt();
+    else if(state.mode === "webcam" && webcamArtLines) drawWebcamArt();
+    animFrameId = requestAnimationFrame(animationTick);
+  }
+  function updateAnimationLoop(){
+    const shouldAnimate = ANIMATED_MODE_IDS.has(state.color);
+    if(shouldAnimate && animFrameId === null){
+      animStartTime = null;
+      animFrameId = requestAnimationFrame(animationTick);
+    } else if(!shouldAnimate && animFrameId !== null){
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+      state.animTime = 0;
+    }
+  }
+  // hook into color chip clicks (chips already re-render on click; we additionally toggle the loop)
+  [...colorChipsWrap.children].forEach(chip => {
+    chip.addEventListener("click", updateAnimationLoop);
+  });
+
+  function flashBtn(btn, msg){
+    const original = btn.textContent;
+    btn.textContent = msg;
+    setTimeout(() => { btn.textContent = original; }, 1100);
+  }
+
+  /* ---- render history (text mode only, session-local, in-memory) ---- */
+  function pushHistory(){
+    if(state.mode !== "text") return;
+    const raw = inputText.value.trim();
+    if(!raw) return;
+    const label = raw.split("\n")[0].slice(0, 14) || "(empty)";
+    history = history.filter(h => h.text !== raw); // dedupe
+    history.unshift({ label, text: raw, font: state.font, color: state.color, glow: state.glow });
+    history = history.slice(0, 8);
+    renderHistory();
+  }
+
+  function renderHistory(){
+    if(!history.length){
+      historyWrap.style.display = "none";
+      return;
+    }
+    historyWrap.style.display = "block";
+    historyStrip.innerHTML = "";
+    history.forEach(entry => {
+      const item = document.createElement("button");
+      item.className = "history-item";
+      item.textContent = entry.label;
+      item.addEventListener("click", () => {
+        setMode("text");
+        inputText.value = entry.text;
+        state.font = entry.font;
+        state.color = entry.color;
+        state.glow = entry.glow;
+        fontSelect.value = entry.font;
+        [...colorChipsWrap.children].forEach(c => c.classList.toggle("active", c.dataset.mode === entry.color));
+        glowSlider.value = entry.glow;
+        updateGlowLabel();
+        draw(true);
+      });
+      historyStrip.appendChild(item);
+    });
+  }
+
+  // initial demo
+  inputText.value = "RWIN";
+  draw(true);
+
+  // boot-line typing effect (cosmetic, no functional dependency)
+  (function bootType(){
+    const msg = "system online · font bank loaded · 10 typefaces · 12 color modes · image mode ready";
+    let i = 0;
+    const caret = bootLine.querySelector(".caret");
+    function tick(){
+      if(i <= msg.length){
+        bootLine.textContent = msg.slice(0, i);
+        bootLine.appendChild(caret);
+        i++;
+        setTimeout(tick, 14);
+      }
+    }
+    tick();
+  })();
+})();
+</script>
+</body>
+</html>
