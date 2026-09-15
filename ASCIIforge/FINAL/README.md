@@ -60,8 +60,7 @@ There is nothing to install. ASCII::FORGE is a single self-contained HTML file.
 ### Quick start
 
 ```bash
-git clone https://github.com/black8arch/ascii-forge.git
-cd ascii-forge
+
 xdg-open ascii-forge.html   # Linux
 # open ascii-forge.html     # macOS
 # start ascii-forge.html    # Windows
