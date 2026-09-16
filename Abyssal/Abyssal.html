@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ABYSSAL — ascii sea</title>
+<style>
+  :root{
+    --abyss:   #05070b;
+    --deck:    #0b0f16;
+    --rule:    #1b2330;
+    --ink:     #e8e4da;
+    --ink-dim: #6b7382;
+    --ink-faint:#3a4252;
+    --buoy:    #e3b23c;
+    --paper:   #dcd5c4;
+    --paper-ink:#141d29;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--abyss);
+    color: var(--ink);
+    font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 30px 18px 60px;
+    min-height:100%;
+  }
+  body.paper{
+    background: var(--paper);
+    color: var(--paper-ink);
+  }
+
+  /* ---------- masthead ---------- */
+  header{
+    width:100%;
+    max-width: 1080px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:18px;
+    flex-wrap:wrap;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 22px;
+  }
+  body.paper header{ border-color: rgba(20,29,41,.25); }
+  .wordmark{
+    font-family: "Helvetica Neue", "Arial Narrow", Helvetica, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: clamp(30px, 6vw, 58px);
+    letter-spacing: .34em;
+    text-transform: uppercase;
+    line-height: .95;
+    margin:0;
+    padding-left: .34em; /* optical: tracking adds a trailing gap */
+  }
+  .subtitle{
+    font-size: 10px;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    text-align: right;
+    line-height: 1.7;
+  }
+  body.paper .subtitle{ color: rgba(20,29,41,.55); }
+
+  /* ---------- the sea ---------- */
+  .sea-wrap{
+    width:100%;
+    max-width: 1080px;
+    position: relative;
+  }
+  pre.sea{
+    margin:0;
+    background: var(--deck);
+    border: 1px solid var(--rule);
+    padding: 22px 18px;
+    overflow-x: auto;
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 1.0;
+    letter-spacing: 0;
+    white-space: pre;
+    min-height: 300px;
+  }
+  body.paper pre.sea{
+    background: #e7e1d3;
+    border-color: rgba(20,29,41,.22);
+  }
+  .sounding{
+    display:flex;
+    justify-content:space-between;
+    gap: 14px;
+    flex-wrap:wrap;
+    margin-top: 8px;
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  body.paper .sounding{ color: rgba(20,29,41,.5); }
+  .sounding b{
+    color: var(--ink-dim);
+    font-weight: 400;
+  }
+  body.paper .sounding b{ color: rgba(20,29,41,.75); }
+
+  /* ---------- instrument rail ---------- */
+  .rail{
+    width:100%;
+    max-width: 1080px;
+    margin-top: 26px;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 18px 26px;
+  }
+  .bank{ display:flex; flex-direction:column; gap:12px; }
+  .bank-title{
+    font-size: 9px;
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 7px;
+    border-bottom: 1px solid var(--rule);
+  }
+  body.paper .bank-title{
+    color: rgba(20,29,41,.45);
+    border-color: rgba(20,29,41,.2);
+  }
+
+  .ctl{ display:flex; flex-direction:column; gap:6px; }
+  .ctl label{
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap: 10px;
+  }
+  body.paper .ctl label{ color: rgba(20,29,41,.6); }
+  .ctl label .val{
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  body.paper .ctl label .val{ color: var(--paper-ink); }
+
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    height: 1px;
+    background: var(--ink-faint);
+    outline:none;
+    margin: 6px 0;
+  }
+  body.paper input[type=range]{ background: rgba(20,29,41,.35); }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    appearance:none;
+    width: 9px; height: 9px;
+    background: var(--ink);
+    border-radius:0;
+    cursor:pointer;
+    margin-top:-4px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:9px; height:9px; border:0; border-radius:0;
+    background: var(--ink); cursor:pointer;
+  }
+  body.paper input[type=range]::-webkit-slider-thumb{ background: var(--paper-ink); }
+  body.paper input[type=range]::-moz-range-thumb{ background: var(--paper-ink); }
+  input[type=range]:focus-visible{ outline: 1px solid var(--buoy); outline-offset: 4px; }
+
+  .seg{ display:flex; flex-wrap:wrap; gap:4px; }
+  .seg button{
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    padding: 6px 9px;
+    background: transparent;
+    color: var(--ink-dim);
+    border: 1px solid var(--rule);
+    cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .seg button:hover{ color: var(--ink); border-color: var(--ink-faint); }
+  .seg button[aria-pressed="true"]{
+    color: var(--abyss);
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  body.paper .seg button{ color: rgba(20,29,41,.6); border-color: rgba(20,29,41,.25); }
+  body.paper .seg button:hover{ color: var(--paper-ink); }
+  body.paper .seg button[aria-pressed="true"]{
+    color: var(--paper);
+    background: var(--paper-ink);
+    border-color: var(--paper-ink);
+  }
+  .seg button:focus-visible{ outline: 1px solid var(--buoy); outline-offset: 2px; }
+
+  .actions{
+    width:100%;
+    max-width:1080px;
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    display:flex;
+    gap: 8px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  body.paper .actions{ border-color: rgba(20,29,41,.2); }
+  .actions button{
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    padding: 9px 15px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--ink-faint);
+    cursor:pointer;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .actions button:hover{ background: var(--ink); color: var(--abyss); border-color: var(--ink); }
+  .actions button.primary{
+    border-color: var(--buoy);
+    color: var(--buoy);
+  }
+  .actions button.primary:hover{ background: var(--buoy); color: var(--abyss); border-color: var(--buoy); }
+  body.paper .actions button{ color: var(--paper-ink); border-color: rgba(20,29,41,.35); }
+  body.paper .actions button:hover{ background: var(--paper-ink); color: var(--paper); }
+  .actions button:focus-visible{ outline: 1px solid var(--buoy); outline-offset: 2px; }
+  .spacer{ flex:1; }
+
+  @media (prefers-reduced-motion: reduce){
+    /* animation is opt-in below; nothing else moves */
+  }
+  @media (max-width: 620px){
+    .wordmark{ letter-spacing: .2em; padding-left: .2em; }
+    .subtitle{ text-align:left; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 class="wordmark">Abyssal</h1>
+  <div class="subtitle">
+    ascii sea generator<br>
+    ridgeline &middot; surface &middot; swell &middot; chop
+  </div>
+</header>
+
+<div class="sea-wrap">
+  <pre class="sea" id="sea" aria-label="Generated ASCII sea"></pre>
+  <div class="sounding">
+    <span>trace <b id="sTrace">—</b></span>
+    <span>span <b id="sSpan">—</b></span>
+    <span>sea state <b id="sState">—</b></span>
+    <span>period <b id="sPeriod">—</b></span>
+    <span>seed <b id="sSeed">—</b></span>
+  </div>
+</div>
+
+<div class="rail">
+
+  <div class="bank">
+    <div class="bank-title">Reading</div>
+    <div class="ctl">
+      <div class="seg" id="modeSeg" role="group" aria-label="Reading mode">
+        <button data-mode="ridge">Ridgeline</button>
+        <button data-mode="surface">Surface</button>
+        <button data-mode="swell">Swell</button>
+        <button data-mode="chop">Chop</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label for="cols">Span <span class="val" id="colsVal">104</span></label>
+      <input type="range" id="cols" min="40" max="180" value="104" step="2">
+    </div>
+    <div class="ctl">
+      <label for="traces">Traces <span class="val" id="tracesVal">32</span></label>
+      <input type="range" id="traces" min="6" max="60" value="32" step="1">
+    </div>
+    <div class="ctl">
+      <label for="pitch">Line pitch <span class="val" id="pitchVal">2</span></label>
+      <input type="range" id="pitch" min="1" max="6" value="2" step="1">
+    </div>
+  </div>
+
+  <div class="bank">
+    <div class="bank-title">Sea</div>
+    <div class="ctl">
+      <label for="amp">Amplitude <span class="val" id="ampVal">11</span></label>
+      <input type="range" id="amp" min="1" max="18" value="11" step="1">
+    </div>
+    <div class="ctl">
+      <label for="period">Swell period <span class="val" id="periodVal">22</span></label>
+      <input type="range" id="period" min="4" max="60" value="22" step="1">
+    </div>
+    <div class="ctl">
+      <label for="chopness">Turbulence <span class="val" id="chopVal">3</span></label>
+      <input type="range" id="chopness" min="1" max="6" value="3" step="1">
+    </div>
+    <div class="ctl">
+      <label for="focus">Peak focus <span class="val" id="focusVal">0.22</span></label>
+      <input type="range" id="focus" min="8" max="100" value="22" step="1">
+    </div>
+  </div>
+
+  <div class="bank">
+    <div class="bank-title">Trace</div>
+    <div class="ctl">
+      <div class="seg" id="penSeg" role="group" aria-label="Pen">
+        <button data-pen="slope">Slope</button>
+        <button data-pen="solid">Solid</button>
+        <button data-pen="hash">Hash</button>
+        <button data-pen="dot">Dot</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <div class="seg" id="rampSeg" role="group" aria-label="Density ramp">
+        <button data-ramp="classic">Classic</button>
+        <button data-ramp="blocks">Blocks</button>
+        <button data-ramp="soft">Soft</button>
+        <button data-ramp="binary">Binary</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bank">
+    <div class="bank-title">Chart</div>
+    <div class="ctl">
+      <div class="seg" id="paletteSeg" role="group" aria-label="Palette">
+        <button data-pal="bone">Bone</button>
+        <button data-pal="fathom">Fathom</button>
+        <button data-pal="sodium">Sodium</button>
+        <button data-pal="tide">Tide</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <div class="seg" id="stockSeg" role="group" aria-label="Chart stock">
+        <button data-stock="dark">Ink on dark</button>
+        <button data-stock="paper">Ink on paper</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label for="speed">Drift <span class="val" id="speedVal">0.45</span></label>
+      <input type="range" id="speed" min="0" max="150" value="45" step="1">
+    </div>
+  </div>
+
+</div>
+
+<div class="actions">
+  <button id="playBtn" class="primary">Pause drift</button>
+  <button id="seedBtn">New seed</button>
+  <button id="randomBtn">Randomise</button>
+  <div class="spacer"></div>
+  <button id="copyBtn">Copy</button>
+  <button id="txtBtn">Save .txt</button>
+  <button id="pngBtn">Save .png</button>
+</div>
+
+<canvas id="exportCanvas" style="display:none;"></canvas>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     NOISE
+     Seeded integer hash -> 1D value noise -> fbm.
+     Deterministic, so a seed always reproduces the same sea.
+     ========================================================= */
+  function hash1(i, seed){
+    let h = Math.imul((i | 0) ^ (seed | 0), 2246822519);
+    h = Math.imul(h ^ (h >>> 13), 3266489917);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  function noise1(x, seed){
+    const i = Math.floor(x);
+    const f = x - i;
+    const u = f * f * (3 - 2 * f);           // smoothstep
+    const a = hash1(i, seed);
+    const b = hash1(i + 1, seed);
+    return a + (b - a) * u;
+  }
+  function fbm(x, seed, octaves){
+    let sum = 0, amp = 0.5, freq = 1, norm = 0;
+    for(let o = 0; o < octaves; o++){
+      sum  += amp * noise1(x * freq, seed + o * 1013);
+      norm += amp;
+      amp  *= 0.5;
+      freq *= 2;
+    }
+    return sum / (norm || 1);
+  }
+
+  /* =========================================================
+     PENS & RAMPS
+     ========================================================= */
+  const RAMPS = {
+    classic: " .:-=+*#%@",
+    blocks:  " \u2591\u2592\u2593\u2588",
+    soft:    " .\u00b7\u2022\u25cf\u25cf",
+    binary:  " .01"
+  };
+  // slope pen picks a glyph from the local gradient, which reads as a drawn line
+  function slopeGlyph(dy){
+    if(dy <= -0.75) return "/";
+    if(dy >= 0.75)  return "\\";
+    return "_";
+  }
+  const PENS = {
+    solid: () => "\u2588",
+    hash:  () => "#",
+    dot:   () => "\u00b7",
+    slope: slopeGlyph
+  };
+
+  /* =========================================================
+     PALETTES
+     Each returns a hex for t in 0..1 (0 = far/deep, 1 = near).
+     ========================================================= */
+  function mix(a, b, t){
+    const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+    const br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+    const r = Math.round(ar + (br - ar) * t);
+    const g = Math.round(ag + (bg - ag) * t);
+    const bl = Math.round(ab + (bb - ab) * t);
+    return "#" + ((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1);
+  }
+  const PALETTES = {
+    bone:   () => "#e8e4da",
+    fathom: t => mix(0x24405e, 0xa9e4e0, t),
+    sodium: t => mix(0x5c3310, 0xe3b23c, t),
+    tide:   t => mix(0x2b2350, 0xd8cfe6, t)
+  };
+  // on paper stock the light end of a ramp would vanish, so darken instead
+  const PAPER_PALETTES = {
+    bone:   () => "#141d29",
+    fathom: t => mix(0x9aa9b4, 0x11313f, t),
+    sodium: t => mix(0xb2a184, 0x4a2c07, t),
+    tide:   t => mix(0xa39cb8, 0x241c44, t)
+  };
+
+  /* =========================================================
+     STATE
+     ========================================================= */
+  const state = {
+    mode: "ridge",
+    cols: 104,
+    traces: 32,
+    amp: 11,
+    period: 22,
+    turbulence: 3,
+    pitch: 2,
+    focus: 0.22,
+    pen: "slope",
+    ramp: "classic",
+    palette: "bone",
+    stock: "dark",
+    speed: 0.45,
+    seed: 20260915,
+    running: true,
+    t: 0
+  };
+
+  /* =========================================================
+     SEA BUILDERS
+     Each returns { grid, depth } where grid is an array of rows
+     (arrays of single chars) and depth is a parallel array of
+     0..1 values used to colour each cell.
+     ========================================================= */
+
+  function blankGrid(w, h){
+    const grid = new Array(h), depth = new Array(h);
+    for(let y = 0; y < h; y++){
+      grid[y] = new Array(w).fill(" ");
+      depth[y] = new Array(w).fill(0);
+    }
+    return { grid, depth };
+  }
+
+  // Gaussian bulge across the span, so peaks gather mid-chart
+  function envelope(x, w, focus){
+    const nx = w <= 1 ? 0.5 : x / (w - 1);
+    const sigma = Math.max(0.04, focus);
+    const g = Math.exp(-((nx - 0.5) * (nx - 0.5)) / (2 * sigma * sigma));
+    return 0.06 + 0.94 * g;
+  }
+
+  /* --- RIDGELINE ---------------------------------------------------
+     Stacked traces drawn far-to-near. Each trace fills the band below
+     its own curve with blanks before drawing, which hides the traces
+     behind it — the floating-horizon trick that makes the stack read
+     as depth rather than as overlapping scribble.
+  ------------------------------------------------------------------ */
+  function buildRidge(){
+    const w = state.cols;
+    const n = state.traces;
+    const amp = state.amp;
+    // traces sit close together; amplitude is what makes crests overlap the
+    // rows above, which is where the depth in a stacked plot comes from
+    const spacing = Math.max(1, state.pitch);
+    const h = spacing * (n - 1) + amp + 3;
+    const { grid, depth } = blankGrid(w, h);
+    const pen = PENS[state.pen];
+
+    for(let i = 0; i < n; i++){
+      const baseline = 1 + amp + i * spacing;
+      const nearness = n <= 1 ? 1 : i / (n - 1);
+      // traces near the middle of the stack run taller (gaussian band)
+      const band = Math.exp(-((nearness - 0.5) * (nearness - 0.5)) / (2 * 0.3 * 0.3));
+      // each trace gets its own energy, so the cluster is uneven rather than a lens
+      const energy = 0.45 + 1.05 * hash1(i, state.seed + 555);
+      const rowSeed = state.seed + i * 7919;
+      const drift = state.t * state.speed;
+
+      const ys = new Array(w);
+      for(let x = 0; x < w; x++){
+        const u = (x / state.period) + drift + i * 0.35;
+        let v = fbm(u, rowSeed, state.turbulence);
+        // fbm clusters around 0.5; stretch it so crests and troughs separate
+        v = (v - 0.5) * 2.4 + 0.42;
+        v = Math.min(1, Math.max(0, v));
+        v = Math.pow(v, 2.2);                        // sharpen into crests
+        v *= envelope(x, w, state.focus) * Math.max(0.1, band) * energy;
+        ys[x] = baseline - Math.min(1.6, v) * amp;
+      }
+
+      for(let x = 0; x < w; x++){
+        const yf = ys[x];
+        const y = Math.round(yf);
+        // opaque body: blank everything between this crest and its baseline
+        for(let yy = y + 1; yy <= baseline && yy < h; yy++){
+          if(yy >= 0){ grid[yy][x] = " "; depth[yy][x] = 0; }
+        }
+        if(y >= 0 && y < h){
+          const dy = (ys[Math.min(w - 1, x + 1)] - ys[Math.max(0, x - 1)]) / 2;
+          grid[y][x] = state.pen === "slope" ? pen(dy) : pen();
+          depth[y][x] = nearness;
+        }
+      }
+    }
+    return { grid, depth, w, h };
+  }
+
+  /* --- SURFACE -----------------------------------------------------
+     Looking down on the water: a height field mapped to a density ramp.
+  ------------------------------------------------------------------ */
+  function buildSurface(){
+    const w = state.cols;
+    const h = Math.max(8, Math.round(state.traces * 0.9));
+    const { grid, depth } = blankGrid(w, h);
+    const ramp = RAMPS[state.ramp];
+    const drift = state.t * state.speed;
+
+    for(let y = 0; y < h; y++){
+      for(let x = 0; x < w; x++){
+        const u = x / state.period + drift;
+        const v = y / Math.max(4, state.period * 0.5) - drift * 0.35;
+        // two offset fields crossed, so the surface has swell and cross-chop
+        let a = fbm(u + v * 0.6, state.seed, state.turbulence);
+        let b = fbm(v - u * 0.25, state.seed + 4441, state.turbulence);
+        let val = (a * 0.65 + b * 0.35);
+        val *= 0.55 + 0.45 * envelope(x, w, Math.max(state.focus, 0.35));
+        val = Math.min(0.999, Math.max(0, val * (0.5 + state.amp / 18)));
+        const idx = Math.floor(val * ramp.length);
+        grid[y][x] = ramp[Math.min(ramp.length - 1, idx)];
+        depth[y][x] = val;
+      }
+    }
+    return { grid, depth, w, h };
+  }
+
+  /* --- SWELL -------------------------------------------------------
+     Side elevation: one horizon, water filled beneath it with a ramp
+     that thins with depth.
+  ------------------------------------------------------------------ */
+  function buildSwell(){
+    const w = state.cols;
+    const h = Math.max(10, state.traces);
+    const { grid, depth } = blankGrid(w, h);
+    const ramp = RAMPS[state.ramp];
+    const pen = PENS[state.pen];
+    const amp = Math.min(state.amp, Math.floor(h / 2) - 1);
+    const mid = Math.floor(h * 0.42);
+    const drift = state.t * state.speed;
+
+    const ys = new Array(w);
+    for(let x = 0; x < w; x++){
+      const u = x / state.period + drift;
+      let v = fbm(u, state.seed, state.turbulence) * 2 - 1;
+      v *= envelope(x, w, Math.max(state.focus, 0.3));
+      ys[x] = mid - v * amp;
+    }
+
+    for(let x = 0; x < w; x++){
+      const y = Math.round(ys[x]);
+      for(let yy = Math.max(0, y + 1); yy < h; yy++){
+        const below = (yy - y) / Math.max(1, h - y);
+        const val = Math.max(0, 1 - below * 1.25);
+        const idx = Math.floor(val * ramp.length);
+        grid[yy][x] = ramp[Math.min(ramp.length - 1, Math.max(0, idx))];
+        depth[yy][x] = val;
+      }
+      if(y >= 0 && y < h){
+        const dy = (ys[Math.min(w - 1, x + 1)] - ys[Math.max(0, x - 1)]) / 2;
+        grid[y][x] = state.pen === "slope" ? pen(dy) : pen();
+        depth[y][x] = 1;
+      }
+    }
+    return { grid, depth, w, h };
+  }
+
+  /* --- CHOP --------------------------------------------------------
+     Interference of several small wave trains: a restless, even field.
+  ------------------------------------------------------------------ */
+  function buildChop(){
+    const w = state.cols;
+    const h = Math.max(8, Math.round(state.traces * 0.9));
+    const { grid, depth } = blankGrid(w, h);
+    const ramp = RAMPS[state.ramp];
+    const drift = state.t * state.speed;
+    const k = 2 * Math.PI / Math.max(3, state.period);
+
+    for(let y = 0; y < h; y++){
+      for(let x = 0; x < w; x++){
+        let s = 0;
+        // a few wave trains at different headings
+        s += Math.sin((x + y * 0.5) * k + drift * 2.0);
+        s += Math.sin((x * 0.7 - y) * k * 1.3 - drift * 1.4);
+        s += Math.sin((x * 0.2 + y * 1.4) * k * 0.8 + drift * 0.9);
+        s /= 3;
+        const grain = fbm(x / 7 + drift, state.seed + y * 131, state.turbulence) - 0.5;
+        let val = 0.5 + s * 0.5 * (state.amp / 18 * 1.6) + grain * 0.35;
+        val = Math.min(0.999, Math.max(0, val));
+        const idx = Math.floor(val * ramp.length);
+        grid[y][x] = ramp[Math.min(ramp.length - 1, idx)];
+        depth[y][x] = val;
+      }
+    }
+    return { grid, depth, w, h };
+  }
+
+  function buildSea(){
+    if(state.mode === "surface") return buildSurface();
+    if(state.mode === "swell")   return buildSwell();
+    if(state.mode === "chop")    return buildChop();
+    return buildRidge();
+  }
+
+  /* =========================================================
+     PAINT
+     Rows are emitted as colour runs, not per-character spans,
+     so a 180x60 sea is a few hundred nodes instead of 10,800.
+     ========================================================= */
+  const seaEl = document.getElementById("sea");
+
+  function paletteFn(){
+    const set = state.stock === "paper" ? PAPER_PALETTES : PALETTES;
+    return set[state.palette] || set.bone;
+  }
+  function esc(ch){
+    if(ch === "&") return "&amp;";
+    if(ch === "<") return "&lt;";
+    if(ch === ">") return "&gt;";
+    return ch;
+  }
+
+  let lastSea = null;
+
+  function paint(){
+    const sea = buildSea();
+    lastSea = sea;
+    const pal = paletteFn();
+    const out = [];
+
+    for(let y = 0; y < sea.h; y++){
+      const row = sea.grid[y], dep = sea.depth[y];
+      let runColor = null, runText = "";
+      for(let x = 0; x < sea.w; x++){
+        const ch = row[x];
+        const color = ch === " " ? null : pal(dep[x]);
+        if(color === runColor){
+          runText += esc(ch);
+        } else {
+          if(runText) out.push(runColor ? '<span style="color:' + runColor + '">' + runText + "</span>" : runText);
+          runColor = color;
+          runText = esc(ch);
+        }
+      }
+      if(runText) out.push(runColor ? '<span style="color:' + runColor + '">' + runText + "</span>" : runText);
+      out.push("\n");
+    }
+    seaEl.innerHTML = out.join("");
+    updateSounding(sea);
+  }
+
+  /* Sea state is a real-ish reading: Beaufort-style band from the
+     amplitude and turbulence actually in use. */
+  function seaStateLabel(){
+    const energy = state.amp / 18 * 0.65 + (state.turbulence - 1) / 5 * 0.35;
+    const band = Math.min(9, Math.max(0, Math.round(energy * 9)));
+    const names = ["glassy","rippled","smooth","slight","moderate","rough","very rough","high","very high","phenomenal"];
+    return band + " \u00b7 " + names[band];
+  }
+  function updateSounding(sea){
+    document.getElementById("sTrace").textContent  = state.mode;
+    document.getElementById("sSpan").textContent   = sea.w + "\u00d7" + sea.h;
+    document.getElementById("sState").textContent  = seaStateLabel();
+    document.getElementById("sPeriod").textContent = state.period + " col";
+    document.getElementById("sSeed").textContent   = state.seed;
+  }
+
+  /* =========================================================
+     ANIMATION
+     ========================================================= */
+  const reduceMotion = window.matchMedia
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let rafId = null, lastTime = null;
+  function tick(now){
+    if(lastTime === null) lastTime = now;
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    if(state.running && state.speed > 0){
+      state.t += dt;
+      paint();
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  /* =========================================================
+     CONTROLS
+     ========================================================= */
+  function bindRange(id, valId, apply, format){
+    const input = document.getElementById(id);
+    const out = document.getElementById(valId);
+    const sync = () => {
+      apply(parseFloat(input.value));
+      out.textContent = format ? format(parseFloat(input.value)) : input.value;
+      paint();
+    };
+    input.addEventListener("input", sync);
+    return sync;
+  }
+
+  bindRange("cols", "colsVal", v => state.cols = v);
+  bindRange("traces", "tracesVal", v => state.traces = v);
+  bindRange("pitch", "pitchVal", v => state.pitch = v);
+  bindRange("amp", "ampVal", v => state.amp = v);
+  bindRange("period", "periodVal", v => state.period = v);
+  bindRange("chopness", "chopVal", v => state.turbulence = v);
+  bindRange("focus", "focusVal", v => state.focus = v / 100, v => (v / 100).toFixed(2));
+  bindRange("speed", "speedVal", v => state.speed = v / 100, v => (v / 100).toFixed(2));
+
+  function bindSeg(id, attr, key, after){
+    const wrap = document.getElementById(id);
+    const buttons = [...wrap.querySelectorAll("button")];
+    function select(value){
+      state[key] = value;
+      buttons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset[attr] === value)));
+      if(after) after(value);
+      paint();
+    }
+    buttons.forEach(b => b.addEventListener("click", () => select(b.dataset[attr])));
+    select(state[key]);
+    return select;
+  }
+
+  bindSeg("modeSeg", "mode", "mode");
+  bindSeg("penSeg", "pen", "pen");
+  bindSeg("rampSeg", "ramp", "ramp");
+  bindSeg("paletteSeg", "pal", "palette");
+  bindSeg("stockSeg", "stock", "stock", v => {
+    document.body.classList.toggle("paper", v === "paper");
+  });
+
+  const playBtn = document.getElementById("playBtn");
+  function setRunning(on){
+    state.running = on;
+    playBtn.textContent = on ? "Pause drift" : "Resume drift";
+  }
+  playBtn.addEventListener("click", () => setRunning(!state.running));
+
+  document.getElementById("seedBtn").addEventListener("click", () => {
+    state.seed = (Math.random() * 2147483647) | 0;
+    paint();
+  });
+
+  document.getElementById("randomBtn").addEventListener("click", () => {
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const setRange = (id, valId, key, value, fmt) => {
+      state[key] = value;
+      const input = document.getElementById(id);
+      input.value = key === "focus" || key === "speed" ? value * 100 : value;
+      document.getElementById(valId).textContent = fmt ? fmt(value) : value;
+    };
+    setRange("amp", "ampVal", "amp", 2 + Math.floor(Math.random() * 14));
+    setRange("period", "periodVal", "period", 6 + Math.floor(Math.random() * 40));
+    setRange("chopness", "chopVal", "turbulence", 1 + Math.floor(Math.random() * 5));
+    setRange("focus", "focusVal", "focus", (10 + Math.random() * 80) / 100, v => v.toFixed(2));
+    state.seed = (Math.random() * 2147483647) | 0;
+    document.querySelector('#modeSeg button[data-mode="' + pick(["ridge","surface","swell","chop"]) + '"]').click();
+    document.querySelector('#penSeg button[data-pen="' + pick(["slope","solid","hash","dot"]) + '"]').click();
+    document.querySelector('#rampSeg button[data-ramp="' + pick(Object.keys(RAMPS)) + '"]').click();
+    document.querySelector('#paletteSeg button[data-pal="' + pick(Object.keys(PALETTES)) + '"]').click();
+  });
+
+  /* =========================================================
+     EXPORT
+     ========================================================= */
+  function plainText(){
+    if(!lastSea) return "";
+    return lastSea.grid.map(row => row.join("").replace(/\s+$/, "")).join("\n");
+  }
+  function download(blob, name){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  function flash(btn, msg){
+    const prev = btn.textContent;
+    btn.textContent = msg;
+    setTimeout(() => { btn.textContent = prev; }, 1100);
+  }
+
+  const copyBtn = document.getElementById("copyBtn");
+  copyBtn.addEventListener("click", async () => {
+    const text = plainText();
+    if(!text) return;
+    try{
+      await navigator.clipboard.writeText(text);
+      flash(copyBtn, "Copied");
+    }catch(e){
+      flash(copyBtn, "Copy blocked");
+    }
+  });
+
+  const txtBtn = document.getElementById("txtBtn");
+  txtBtn.addEventListener("click", () => {
+    const text = plainText();
+    if(!text) return;
+    download(new Blob([text], { type: "text/plain" }), "abyssal_" + state.mode + "_" + state.seed + ".txt");
+    flash(txtBtn, "Saved");
+  });
+
+  const pngBtn = document.getElementById("pngBtn");
+  pngBtn.addEventListener("click", () => {
+    if(!lastSea) return;
+    const canvas = document.getElementById("exportCanvas");
+    const fontSize = 14;
+    const lineH = Math.round(fontSize * 1.0);
+    const charW = fontSize * 0.6;
+    const pad = 36;
+    canvas.width = Math.ceil(lastSea.w * charW) + pad * 2;
+    canvas.height = lastSea.h * lineH + pad * 2;
+    const ctx = canvas.getContext("2d");
+    const onPaper = state.stock === "paper";
+    ctx.fillStyle = onPaper ? "#e7e1d3" : "#0b0f16";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = fontSize + 'px ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace';
+    ctx.textBaseline = "top";
+    const pal = paletteFn();
+    for(let y = 0; y < lastSea.h; y++){
+      for(let x = 0; x < lastSea.w; x++){
+        const ch = lastSea.grid[y][x];
+        if(ch === " ") continue;
+        ctx.fillStyle = pal(lastSea.depth[y][x]);
+        ctx.fillText(ch, pad + x * charW, pad + y * lineH);
+      }
+    }
+    canvas.toBlob(blob => {
+      if(!blob) return;
+      download(blob, "abyssal_" + state.mode + "_" + state.seed + ".png");
+      flash(pngBtn, "Saved");
+    });
+  });
+
+  /* =========================================================
+     START
+     ========================================================= */
+  if(reduceMotion) setRunning(false);
+  paint();
+  rafId = requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
