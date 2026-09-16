@@ -27,25 +27,12 @@ Built entirely in HTML, CSS, and vanilla JavaScript — no build step, no CDN, n
 
 **Exports** — Copy to clipboard, download as `.txt` (trailing blank columns trimmed per row), or download as `.png` (canvas-rendered at the current palette and stock). Filenames carry the mode and seed, e.g. `abyssal_ridge_20260915.png`.
 
-## Screenshots
 
-*(add screenshots here once you've generated them)*
 
 ## Requirements
 
 Any modern browser (Chrome, Firefox, Safari, Edge). No build tools, no runtime, no internet connection needed after download.
 
-## Installation
-
-This is a single HTML file — there is nothing to build or install.
-
-```bash
-git clone https://github.com/black8arch/abyssal.git
-cd abyssal
-xdg-open abyssal.html   # Linux
-# or: open abyssal.html        (macOS)
-# or: start abyssal.html       (Windows)
-```
 
 Alternatively, just download `abyssal.html` and double-click it.
 
@@ -92,4 +79,4 @@ Same reasoning as the sibling projects in this set: pulling in a noise library w
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT
