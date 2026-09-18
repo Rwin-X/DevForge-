@@ -78,3 +78,4 @@ widgets.py       Custom widgets: cover art tiles, track rows, buttons, cards
   (ID3 `APIC` for MP3, FLAC `PICTURE` blocks, MP4 `covr` atoms). Files
   without embedded art get a generated placeholder instead of a blank
   square.
+created by Rwin-X
