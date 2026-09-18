@@ -53,3 +53,5 @@ All tunable values are at the top of `detector.py`:
   (`storage.googleapis.com`). If that domain is blocked on your network,
   download the two files manually from the MediaPipe docs and place them in
   the `models/` folder using the exact filenames above.
+
+created by Rwin-X
