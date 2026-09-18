@@ -143,3 +143,6 @@ vim's editing model. Things intentionally left out: registers beyond a
 single clipboard slot, macros, marks, jumps, folds, and multi-file
 buffers list (`:ls`). These would be natural next additions if you want
 to extend it.
+
+
+created by Rwin-X
