@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.vdb
+*.vdb.new
+*.vdb.tmp
+*.vdb.bak
+*.db
+*.db.bak
+*.sqlite
+*.tmp
+vaultdb-export*.json
+.venv/
+venv/
+dist/
+build/
+*.spec
