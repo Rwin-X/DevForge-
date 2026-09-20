@@ -12,7 +12,9 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
-
+<p align="center">
+  <img alt="PyLite screenshot" src="docs/screenshot.png" width="820">
+</p>
 
 ## Why PyLite?
 
@@ -45,6 +47,20 @@ just an editor, a Python-only highlighter and a terminal panel.
 - Python 3.9 or newer
 - PyQt6 ≥ 6.4 (installed automatically)
 
+### Install with pip (recommended: pipx)
+
+```bash
+git clone https://github.com/YOUR_USERNAME/pylite.git
+cd pylite
+
+# Option A: isolated install with pipx
+pipx install .
+
+# Option B: plain pip inside a virtual environment
+python3 -m venv .venv && source .venv/bin/activate
+pip install .
+```
+
 Then start it with:
 
 ```bash
@@ -60,6 +76,12 @@ pip install -r requirements.txt
 python3 -m pylite
 ```
 
+### Optional: add it to your application menu
+
+```bash
+install -Dm644 packaging/pylite.desktop ~/.local/share/applications/pylite.desktop
+install -Dm644 pylite/assets/pylite.svg ~/.local/share/icons/hicolor/scalable/apps/pylite.svg
+```
 
 ### Troubleshooting
 
