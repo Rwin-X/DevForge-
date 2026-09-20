@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PyLite
+Comment=Minimal Python editor with a built-in runner
+Exec=pylite %F
+Icon=pylite
+Terminal=false
+Categories=Development;IDE;TextEditor;
+MimeType=text/x-python;
