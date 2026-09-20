@@ -45,20 +45,6 @@ just an editor, a Python-only highlighter and a terminal panel.
 - Python 3.9 or newer
 - PyQt6 ≥ 6.4 (installed automatically)
 
-### Install with pip (recommended: pipx)
-
-```bash
-git clone https://github.com/YOUR_USERNAME/pylite.git
-cd pylite
-
-# Option A: isolated install with pipx
-pipx install .
-
-# Option B: plain pip inside a virtual environment
-python3 -m venv .venv && source .venv/bin/activate
-pip install .
-```
-
 Then start it with:
 
 ```bash
