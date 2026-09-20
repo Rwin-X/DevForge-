@@ -60,12 +60,6 @@ pip install -r requirements.txt
 python3 -m pylite
 ```
 
-### Optional: add it to your application menu
-
-```bash
-install -Dm644 packaging/pylite.desktop ~/.local/share/applications/pylite.desktop
-install -Dm644 pylite/assets/pylite.svg ~/.local/share/icons/hicolor/scalable/apps/pylite.svg
-```
 
 ### Troubleshooting
 
