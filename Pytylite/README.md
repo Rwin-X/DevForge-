@@ -12,9 +12,7 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
-<p align="center">
-  <img alt="PyLite screenshot" src="docs/screenshot.png" width="820">
-</p>
+
 
 ## Why PyLite?
 
