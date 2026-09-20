@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylite-ide"
+version = "0.1.0"
+description = "A minimal, fast Python editor with a built-in runner, built with PyQt6."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "GHOST" }]
+keywords = ["python", "editor", "ide", "pyqt6", "linux", "idle"]
+dependencies = ["PyQt6>=6.4"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Editors",
+]
+
+[project.scripts]
+pylite = "pylite.app:main"
+
+[tool.setuptools]
+packages = ["pylite"]
+
+[tool.setuptools.package-data]
+pylite = ["assets/*.svg"]
