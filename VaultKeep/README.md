@@ -57,3 +57,5 @@ you didn't ask to see.
   cannot be decrypted by anyone — that's the point.
 - Argon2id is deliberately tuned to take ~1–2 seconds per unlock. That's a
   security feature (it's the cost an attacker pays per guess), not a bug.
+
+  by Rwin-X
