@@ -188,6 +188,8 @@ ASCII.GEN focuses on:
 
 **Turn Pixels Into Characters**
 
+by Rwin-x
+
 Made with HTML, CSS & JavaScript
 
 ⭐ Star the repository if you found it useful.
