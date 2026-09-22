@@ -62,6 +62,3 @@ the drone snaps fast and tight, the ghost drifts and lags behind.
 
 ---
 
-<div align="center">
-<sub>part of <a href="#">devforge</a> — vibe-coded, terminal-native</sub>
-</div>
