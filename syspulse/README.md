@@ -33,3 +33,5 @@ in which case the THERMAL panel just shows "NO SENSOR DATA").
   available monospace font on the system.
 - Sampling interval is 1000ms; change `interval_ms` in `SystemSampler.__init__`
   if you want it faster/slower.
+
+  created by Rwin-X
