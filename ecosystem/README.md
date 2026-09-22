@@ -125,10 +125,4 @@ This project could later be expanded with features such as:
 - Evolution mechanics
 - Statistics and visualization
 - Saving and loading simulations
-
----
-
-## 📄 License
-
-This project is intended for educational and experimental purposes.
-```
+by Rwin-X
