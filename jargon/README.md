@@ -6,7 +6,7 @@
 ![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)
 ![Single file](https://img.shields.io/badge/build-single%20HTML%20file-lightgrey.svg)
 
-Type any topic. ReconBar opens live, real search results across Google, Bing, DuckDuckGo, and YouTube for exactly what you typed — optionally restricted to a curated list of trusted security-education domains — and surfaces a hand-picked library of sites for 30 common security topics as a bonus underneath.
+Type any topic. Jargon opens live, real search results across Google, Bing, DuckDuckGo, and YouTube for exactly what you typed — optionally restricted to a curated list of trusted security-education domains — and surfaces a hand-picked library of sites for 30 common security topics as a bonus underneath.
 
 No backend. No API keys. No build step. One HTML file.
 
@@ -14,7 +14,7 @@ No backend. No API keys. No build step. One HTML file.
 
 ## Table of contents
 
-- [Why ReconBar](#why-reconbar)
+- [Why Jargon](#why-jargon)
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Getting started](#getting-started)
@@ -25,7 +25,7 @@ No backend. No API keys. No build step. One HTML file.
 - [Contributing](#contributing)
 
 
-## Why ReconBar
+## Why jargon
 
 Searching for cybersecurity learning material usually means the same manual loop: open Google, open YouTube, filter out low-quality results, repeat across a handful of engines and channels you already trust. ReconBar automates that loop into a single search box — it doesn't try to be a search engine itself (a static page can't crawl the web), it builds the correct, real query URLs for the engines that already exist and gets you there in one click.
 
