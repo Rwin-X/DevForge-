@@ -23,7 +23,7 @@ No backend. No API keys. No build step. One HTML file.
 - [Limitations](#limitations)
 - [Possible extensions](#possible-extensions)
 - [Contributing](#contributing)
-- [License](#license)
+
 
 ## Why ReconBar
 
