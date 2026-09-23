@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cybersecurity Resource Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --ink:#14181f; --muted:#5b6472;
+    --line:#e3e6ea; --accent:#1c4e80; --accent-ink:#0f3050; --accent-soft:#eaf1f7;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:56px 24px 80px;}
+  header h1{
+    font-size:1.5rem; font-weight:600; margin:0 0 6px; letter-spacing:-0.01em;
+  }
+  header p{color:var(--muted); margin:0 0 32px; font-size:0.95rem; max-width:60ch;}
+
+  .search-row{display:flex; gap:8px; margin-bottom:14px;}
+  #q{
+    flex:1; padding:12px 14px; font-size:1rem; font-family:var(--sans);
+    border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--ink);
+  }
+  #q:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  #go{
+    padding:12px 20px; font-size:0.95rem; font-weight:500; border:none; border-radius:6px;
+    background:var(--accent); color:#fff; cursor:pointer; font-family:var(--sans);
+  }
+  #go:hover{background:var(--accent-ink);}
+  #go:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  .toggle{display:flex; align-items:center; gap:8px; margin-bottom:28px; font-size:0.85rem; color:var(--muted); cursor:pointer; user-select:none;}
+  .toggle input{accent-color:var(--accent); width:15px; height:15px; cursor:pointer;}
+
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:40px;}
+  .chip{
+    padding:5px 12px; border:1px solid var(--line); border-radius:100px; background:none;
+    color:var(--muted); font-size:0.82rem; cursor:pointer; font-family:var(--sans);
+  }
+  .chip:hover{border-color:var(--accent); color:var(--accent);}
+
+  .topic{border-top:1px solid var(--line); padding:22px 0;}
+  .topic h2{font-size:1.05rem; font-weight:600; margin:0 0 12px;}
+  .col-label{
+    font-size:0.75rem; color:var(--muted); margin:0 0 8px; font-family:var(--mono);
+  }
+  ul.links{list-style:none; margin:0 0 20px; padding:0;}
+  ul.links li{margin-bottom:2px;}
+  ul.links a{
+    display:block; color:var(--accent); text-decoration:none; font-size:0.96rem; font-weight:500;
+    padding:7px 8px; margin:0 -8px; border-radius:6px;
+  }
+  ul.links a:hover{background:var(--accent-soft);}
+  ul.links .u{display:block; color:var(--muted); font-family:var(--mono); font-size:0.8rem; font-weight:400; margin-top:2px;}
+
+  .fallback{border-top:1px solid var(--line); padding:22px 0;}
+  .fallback h2{font-size:1.05rem; font-weight:600; margin:0 0 6px;}
+  .fallback p{color:var(--muted); font-size:0.88rem; margin:0 0 14px;}
+
+  .empty{color:var(--muted); font-size:0.92rem; padding:40px 0; border-top:1px solid var(--line);}
+
+  .export{
+    margin-top:36px; padding-top:22px; border-top:1px solid var(--line);
+    display:none; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .export span{font-size:0.8rem; color:var(--muted); margin-right:4px;}
+  .export button{
+    padding:8px 14px; font-size:0.82rem; border:1px solid var(--line); border-radius:6px;
+    background:var(--panel); color:var(--ink); cursor:pointer; font-family:var(--mono);
+  }
+  .export button:hover:not(:disabled){border-color:var(--accent); color:var(--accent);}
+  .export button:disabled{opacity:0.4; cursor:default;}
+  .export-note{font-size:0.78rem; color:var(--muted); margin-top:8px; width:100%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Cybersecurity Resource Finder</h1>
+    <p>Search for anything — live results open on Google, Bing, DuckDuckGo and YouTube for exactly what you type. Toggle below to restrict results to trusted security sources.</p>
+  </header>
+
+  <div class="search-row">
+    <input id="q" type="text" placeholder="Type anything…" autocomplete="off">
+    <button id="go">Search</button>
+  </div>
+  <label class="toggle">
+    <input type="checkbox" id="trustedOnly">
+    <span>Trusted security sources only</span>
+  </label>
+  <div class="chips" id="chips"></div>
+
+  <div id="results"></div>
+
+  <div class="export" id="exportBar">
+    <span>Export this result:</span>
+    <button id="exp-json" disabled>.json</button>
+    <button id="exp-md" disabled>readme.md</button>
+    <button id="exp-txt" disabled>.txt</button>
+    <div class="export-note" id="exportNote"></div>
+  </div>
+</div>
+
+<script>
+const TOPICS = [
+  {name:"Web Application Security", aliases:["web security","appsec","webapp"], sites:[
+    {t:"OWASP Top 10", u:"https://owasp.org/www-project-top-ten/"},
+    {t:"PortSwigger Web Security Academy", u:"https://portswigger.net/web-security"},
+    {t:"HackTricks — Web Pentesting", u:"https://book.hacktricks.xyz/pentesting-web"}]},
+  {name:"SQL Injection", aliases:["sqli","sql"], sites:[
+    {t:"OWASP: SQL Injection", u:"https://owasp.org/www-community/attacks/SQL_Injection"},
+    {t:"PortSwigger: SQL Injection Academy", u:"https://portswigger.net/web-security/sql-injection"},
+    {t:"HackTricks: SQL Injection", u:"https://book.hacktricks.xyz/pentesting-web/sql-injection"}]},
+  {name:"Cross-Site Scripting", aliases:["xss"], sites:[
+    {t:"OWASP: XSS", u:"https://owasp.org/www-community/attacks/xss/"},
+    {t:"PortSwigger: XSS Academy", u:"https://portswigger.net/web-security/cross-site-scripting"},
+    {t:"HackTricks: XSS", u:"https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting"}]},
+  {name:"Network Security", aliases:["networking","network+","tcp/ip"], sites:[
+    {t:"Cisco Networking Academy", u:"https://www.netacad.com/"},
+    {t:"Professor Messer — Network+", u:"https://www.professormesser.com/network-plus/n10-009/n10-009-video/n10-009-training-course/"},
+    {t:"Practical Networking", u:"https://www.practicalnetworking.net/"}]},
+  {name:"Penetration Testing", aliases:["pentest","pentesting","ethical hacking"], sites:[
+    {t:"TryHackMe", u:"https://tryhackme.com/"},
+    {t:"Hack The Box Academy", u:"https://academy.hackthebox.com/"},
+    {t:"Offensive Security", u:"https://www.offsec.com/"}]},
+  {name:"Malware Analysis", aliases:["malware"], sites:[
+    {t:"Malware Traffic Analysis", u:"https://www.malware-traffic-analysis.net/"},
+    {t:"ANY.RUN — Interactive Sandbox", u:"https://any.run/"},
+    {t:"VirusTotal", u:"https://www.virustotal.com/"}]},
+  {name:"Reverse Engineering", aliases:["reversing","re"], sites:[
+    {t:"HackTricks — Reversing", u:"https://book.hacktricks.xyz/reversing"},
+    {t:"MalwareUnicorn — RE Workshops", u:"https://malwareunicorn.org/#/workshops"},
+    {t:"OpenSecurityTraining2", u:"https://p.ost2.fyi/"}]},
+  {name:"Cryptography", aliases:["crypto"], sites:[
+    {t:"Cryptopals Challenges", u:"https://cryptopals.com/"},
+    {t:"CyberChef", u:"https://gchq.github.io/CyberChef/"},
+    {t:"Practical Cryptography for Developers", u:"https://cryptobook.nakov.com/"}]},
+  {name:"Capture the Flag", aliases:["ctf"], sites:[
+    {t:"CTFtime", u:"https://ctftime.org/"},
+    {t:"picoCTF", u:"https://picoctf.org/"},
+    {t:"OverTheWire Wargames", u:"https://overthewire.org/wargames/"}]},
+  {name:"OSINT", aliases:["open source intelligence"], sites:[
+    {t:"OSINT Framework", u:"https://osintframework.com/"},
+    {t:"Bellingcat — Resources", u:"https://www.bellingcat.com/resources/"},
+    {t:"IntelTechniques", u:"https://inteltechniques.com/"}]},
+  {name:"Cloud Security", aliases:["aws security","cloud"], sites:[
+    {t:"AWS Well-Architected — Security Pillar", u:"https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html"},
+    {t:"Cloud Security Alliance", u:"https://cloudsecurityalliance.org/"},
+    {t:"Google Cloud Security Best Practices", u:"https://cloud.google.com/security/best-practices"}]},
+  {name:"Digital Forensics", aliases:["dfir","forensics","incident response"], sites:[
+    {t:"SANS — Digital Forensics & Incident Response", u:"https://www.sans.org/digital-forensics-incident-response/"},
+    {t:"CyberDefenders", u:"https://cyberdefenders.org/"},
+    {t:"Magnet Forensics — Resources", u:"https://www.magnetforensics.com/resources/"}]},
+  {name:"Active Directory Security", aliases:["ad security","windows domain"], sites:[
+    {t:"HackTricks — Active Directory Methodology", u:"https://book.hacktricks.xyz/windows-hardening/active-directory-methodology"},
+    {t:"SpecterOps — Posts", u:"https://posts.specterops.io/"},
+    {t:"ADSecurity.org", u:"https://adsecurity.org/"}]},
+  {name:"Bug Bounty", aliases:["bounty"], sites:[
+    {t:"HackerOne — Hacker101", u:"https://www.hacker101.com/"},
+    {t:"Bugcrowd University", u:"https://www.bugcrowd.com/hackers/bugcrowd-university/"},
+    {t:"PentesterLab", u:"https://pentesterlab.com/"}]},
+  {name:"Mobile Security", aliases:["mobile","android security","ios security"], sites:[
+    {t:"OWASP MASTG", u:"https://mas.owasp.org/MASTG/"},
+    {t:"Android Developers — Security", u:"https://developer.android.com/privacy-and-security/security-tips"},
+    {t:"NowSecure — Resources", u:"https://www.nowsecure.com/resources/"}]},
+  {name:"IoT Security", aliases:["iot"], sites:[
+    {t:"OWASP Internet of Things Project", u:"https://owasp.org/www-project-internet-of-things/"},
+    {t:"Shodan", u:"https://www.shodan.io/"},
+    {t:"IoT Village", u:"https://www.iotvillage.org/"}]},
+  {name:"Wireless Security", aliases:["wifi security","wireless","wifi"], sites:[
+    {t:"Aircrack-ng Documentation", u:"https://www.aircrack-ng.org/documentation.html"},
+    {t:"HackTricks — Wi-Fi Attacks", u:"https://book.hacktricks.xyz/network-services-pentesting/pentesting-wifi"},
+    {t:"Wireshark Documentation", u:"https://www.wireshark.org/docs/"}]},
+  {name:"Social Engineering", aliases:["phishing","social engineering"], sites:[
+    {t:"Social-Engineer.org", u:"https://www.social-engineer.org/"},
+    {t:"SANS Security Awareness", u:"https://www.sans.org/security-awareness-training/"},
+    {t:"Gophish Documentation", u:"https://docs.getgophish.com/"}]},
+  {name:"Threat Intelligence", aliases:["threat intel","cti"], sites:[
+    {t:"MITRE ATT&CK", u:"https://attack.mitre.org/"},
+    {t:"AlienVault OTX", u:"https://otx.alienvault.com/"},
+    {t:"MISP Project", u:"https://www.misp-project.org/"}]},
+  {name:"Blue Team & SOC", aliases:["blue team","soc","detection engineering"], sites:[
+    {t:"LetsDefend", u:"https://letsdefend.io/"},
+    {t:"Blue Team Labs Online", u:"https://blueteamlabs.online/"},
+    {t:"Sigma — Detection Rules", u:"https://github.com/SigmaHQ/sigma"}]},
+  {name:"Linux Security", aliases:["linux"], sites:[
+    {t:"OverTheWire — Bandit", u:"https://overthewire.org/wargames/bandit/"},
+    {t:"Linux Journey", u:"https://linuxjourney.com/"},
+    {t:"HackTricks — Linux Privilege Escalation", u:"https://book.hacktricks.xyz/linux-hardening/privilege-escalation"}]},
+  {name:"Windows Security", aliases:["windows"], sites:[
+    {t:"Microsoft Security Documentation", u:"https://learn.microsoft.com/en-us/security/"},
+    {t:"LOLBAS Project", u:"https://lolbas-project.github.io/"},
+    {t:"Sysinternals Suite", u:"https://learn.microsoft.com/en-us/sysinternals/"}]},
+  {name:"Python for Security", aliases:["python"], sites:[
+    {t:"Automate the Boring Stuff with Python", u:"https://automatetheboringstuff.com/"},
+    {t:"Real Python — Security Tutorials", u:"https://realpython.com/tutorials/security/"},
+    {t:"Black Hat Python — Companion Code", u:"https://github.com/EONRaider/blackhat-python3"}]},
+  {name:"Binary Exploitation", aliases:["pwn","exploit dev","buffer overflow"], sites:[
+    {t:"HackTricks — Binary Exploitation", u:"https://book.hacktricks.xyz/binary-exploitation"},
+    {t:"pwn.college", u:"https://pwn.college/"},
+    {t:"Nightmare (guyinatuxedo)", u:"https://guyinatuxedo.github.io/"}]},
+  {name:"Container & Kubernetes Security", aliases:["docker security","k8s security","kubernetes"], sites:[
+    {t:"Kubernetes — Security Docs", u:"https://kubernetes.io/docs/concepts/security/"},
+    {t:"Aqua — Cloud Native Security Academy", u:"https://www.aquasec.com/cloud-native-academy/"},
+    {t:"Docker — Security Docs", u:"https://docs.docker.com/engine/security/"}]},
+  {name:"API Security", aliases:["api"], sites:[
+    {t:"OWASP API Security Top 10", u:"https://owasp.org/www-project-api-security/"},
+    {t:"PortSwigger — API Testing", u:"https://portswigger.net/web-security/api-testing"},
+    {t:"APIsec University", u:"https://www.apisecuniversity.com/"}]},
+  {name:"Governance, Risk & Compliance", aliases:["grc","iso 27001","compliance"], sites:[
+    {t:"NIST Cybersecurity Framework", u:"https://www.nist.gov/cyberframework"},
+    {t:"CIS Controls", u:"https://www.cisecurity.org/controls"},
+    {t:"ISO/IEC 27001 Overview", u:"https://www.iso.org/standard/27001"}]},
+  {name:"Secure Coding", aliases:["secure development","sdlc"], sites:[
+    {t:"OWASP Secure Coding Practices", u:"https://owasp.org/www-project-secure-coding-practices-quick-reference-guide/"},
+    {t:"OWASP ASVS", u:"https://owasp.org/www-project-application-security-verification-standard/"},
+    {t:"SEI CERT Coding Standards", u:"https://wiki.sei.cmu.edu/confluence/display/seccode"}]},
+  {name:"Password & Authentication Security", aliases:["passwords","auth","authentication"], sites:[
+    {t:"NIST Digital Identity Guidelines", u:"https://pages.nist.gov/800-63-3/"},
+    {t:"Have I Been Pwned", u:"https://haveibeenpwned.com/"},
+    {t:"OWASP Authentication Cheat Sheet", u:"https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"}]},
+  {name:"Certifications & Career", aliases:["career","certification","certifications"], sites:[
+    {t:"Cybrary", u:"https://www.cybrary.it/"},
+    {t:"Paul's Security Weekly", u:"https://securityweekly.com/"},
+    {t:"Offensive Security — Certifications", u:"https://www.offsec.com/courses-and-certifications/"}]}
+];
+
+const CHANNELS = [
+  {name:"John Hammond", handle:"@_JohnHammond"},
+  {name:"LiveOverflow", handle:"@LiveOverflow"},
+  {name:"IppSec", handle:"@ippsec"},
+  {name:"NetworkChuck", handle:"@NetworkChuck"},
+  {name:"TCM Security", handle:"@TCMSecurityAcademy"},
+  {name:"HackerSploit", handle:"@HackerSploit"},
+  {name:"David Bombal", handle:"@davidbombal"},
+  {name:"Professor Messer", handle:"@professormesser"}
+];
+
+const TRUSTED_DOMAINS = ["owasp.org","portswigger.net","book.hacktricks.xyz","tryhackme.com","academy.hackthebox.com","sans.org","attack.mitre.org","cryptopals.com","nist.gov","exploit-db.com","cisa.gov","first.org","hackerone.com"];
+
+const CHIP_TOPICS = ["SQL Injection","Cross-Site Scripting","Penetration Testing","Malware Analysis","Cryptography","OSINT","Capture the Flag","Cloud Security","Binary Exploitation","Mobile Security","Threat Intelligence","API Security"];
+
+const qEl = document.getElementById('q');
+const chipsEl = document.getElementById('chips');
+const resultsEl = document.getElementById('results');
+const exportBar = document.getElementById('exportBar');
+const exportNote = document.getElementById('exportNote');
+
+CHIP_TOPICS.forEach(t=>{
+  const b=document.createElement('button');
+  b.className='chip'; b.type='button'; b.textContent=t;
+  b.addEventListener('click',()=>{ qEl.value=t; runSearch(); });
+  chipsEl.appendChild(b);
+});
+
+function norm(s){ return s.toLowerCase().trim(); }
+
+function matchTopics(q){
+  const nq = norm(q);
+  if(!nq) return [];
+  return TOPICS.filter(t=>{
+    const n = t.name.toLowerCase();
+    if(n.includes(nq) || nq.includes(n)) return true;
+    return t.aliases.some(a=> a.includes(nq) || nq.includes(a));
+  }).slice(0,3);
+}
+
+function buildLiveLinks(q, trustedOnly){
+  const fullQuery = trustedOnly
+    ? `${q} (${TRUSTED_DOMAINS.map(d=>'site:'+d).join(' OR ')})`
+    : q;
+  const enc = encodeURIComponent(fullQuery);
+  const google = `https://www.google.com/search?q=${enc}`;
+  const bing = `https://www.bing.com/search?q=${enc}`;
+  const ddg = `https://duckduckgo.com/?q=${enc}`;
+  const youtube = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+  const channelSearches = CHANNELS.map(c=>({
+    name:c.name,
+    url:`https://www.youtube.com/${c.handle}/search?query=${encodeURIComponent(q)}`
+  }));
+  return {google, bing, ddg, youtube, channelSearches};
+}
+
+let currentResult = null;
+const trustedToggle = document.getElementById('trustedOnly');
+
+function runSearch(){
+  const q = qEl.value.trim();
+  resultsEl.innerHTML = '';
+  if(!q){ exportBar.style.display='none'; currentResult=null; return; }
+
+  const trustedOnly = trustedToggle.checked;
+  const links = buildLiveLinks(q, trustedOnly);
+
+  const live = document.createElement('div');
+  live.className = 'topic';
+  live.innerHTML = `
+    <h2>Live results for "${q}"</h2>
+    <p class="col-label">${trustedOnly ? 'Trusted security sources only' : 'Open web'}</p>
+    <ul class="links">
+      <li><a href="${links.google}" target="_blank" rel="noopener">Google<span class="u">${links.google}</span></a></li>
+      <li><a href="${links.bing}" target="_blank" rel="noopener">Bing<span class="u">${links.bing}</span></a></li>
+      <li><a href="${links.ddg}" target="_blank" rel="noopener">DuckDuckGo<span class="u">${links.ddg}</span></a></li>
+      <li><a href="${links.youtube}" target="_blank" rel="noopener">YouTube<span class="u">${links.youtube}</span></a></li>
+    </ul>
+    <p class="col-label">YouTube — trusted channels</p>
+    <ul class="links">
+      ${links.channelSearches.map(c=>`<li><a href="${c.url}" target="_blank" rel="noopener">${c.name}<span class="u">${c.url}</span></a></li>`).join('')}
+    </ul>`;
+  resultsEl.appendChild(live);
+
+  const matched = matchTopics(q);
+  if(matched.length){
+    const lib = document.createElement('div');
+    lib.className = 'fallback';
+    lib.innerHTML = `<h2>From our library</h2>
+      <p>Hand-picked sites for related topics we already track.</p>
+      ${matched.map(topic=>`
+        <p class="col-label">${topic.name}</p>
+        <ul class="links">${topic.sites.map(s=>`<li><a href="${s.u}" target="_blank" rel="noopener">${s.t}<span class="u">${s.u}</span></a></li>`).join('')}</ul>`).join('')}`;
+    resultsEl.appendChild(lib);
+  }
+
+  currentResult = {
+    query: q,
+    generatedAt: new Date().toISOString(),
+    trustedOnly,
+    liveSearch: {google: links.google, bing: links.bing, duckduckgo: links.ddg, youtube: links.youtube},
+    youtubeChannels: links.channelSearches,
+    libraryMatches: matched.map(t=>({name:t.name, sites:t.sites}))
+  };
+  exportBar.style.display = 'flex';
+}
+
+document.getElementById('go').addEventListener('click', runSearch);
+qEl.addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
+trustedToggle.addEventListener('change', ()=>{ if(qEl.value.trim()) runSearch(); });
+
+function slugify(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'query'; }
+
+function toJSON(r){ return JSON.stringify(r, null, 2); }
+
+function toReadme(r){
+  let md = `# Search: ${r.query}\n\nGenerated: ${r.generatedAt}\nMode: ${r.trustedOnly ? 'Trusted security sources only' : 'Open web'}\n\n## Live search\n`;
+  md += `- [Google](${r.liveSearch.google})\n- [Bing](${r.liveSearch.bing})\n- [DuckDuckGo](${r.liveSearch.duckduckgo})\n- [YouTube](${r.liveSearch.youtube})\n\n`;
+  md += `## YouTube — trusted channels\n`;
+  r.youtubeChannels.forEach(c=> md += `- [${c.name}](${c.url})\n`);
+  if(r.libraryMatches.length){
+    md += `\n## From our library\n`;
+    r.libraryMatches.forEach(t=>{
+      md += `### ${t.name}\n`;
+      t.sites.forEach(s=> md += `- [${s.t}](${s.u})\n`);
+    });
+  }
+  return md;
+}
+
+function toTxt(r){
+  let t = `Search: ${r.query}\nGenerated: ${r.generatedAt}\nMode: ${r.trustedOnly ? 'Trusted security sources only' : 'Open web'}\n\n`;
+  t += `Live search\n  Google — ${r.liveSearch.google}\n  Bing — ${r.liveSearch.bing}\n  DuckDuckGo — ${r.liveSearch.duckduckgo}\n  YouTube — ${r.liveSearch.youtube}\n\n`;
+  t += `YouTube — trusted channels\n`;
+  r.youtubeChannels.forEach(c=> t += `  ${c.name} — ${c.url}\n`);
+  if(r.libraryMatches.length){
+    t += `\nFrom our library\n`;
+    r.libraryMatches.forEach(top=>{
+      t += `  ${top.name}\n`;
+      top.sites.forEach(s=> t += `    ${s.t} — ${s.u}\n`);
+    });
+  }
+  return t;
+}
+
+let downloadsCap = null;
+(async ()=>{
+  try{
+    if(window.claude && window.claude.use){
+      downloadsCap = await window.claude.use('downloads');
+    }
+  }catch(e){ downloadsCap = null; }
+  if(downloadsCap){
+    document.querySelectorAll('.export button').forEach(b=> b.disabled = false);
+  } else {
+    exportNote.textContent = 'File export isn\'t available in this view.';
+  }
+})();
+
+async function doExport(kind){
+  if(!currentResult || !downloadsCap) return;
+  const slug = slugify(currentResult.query);
+  let filename, data;
+  if(kind==='json'){ filename = `cybersec-${slug}.json`; data = toJSON(currentResult); }
+  else if(kind==='md'){ filename = `cybersec-${slug}-README.md`; data = toReadme(currentResult); }
+  else { filename = `cybersec-${slug}.txt`; data = toTxt(currentResult); }
+  try{
+    await downloadsCap.save({filename, data});
+    exportNote.textContent = '';
+  }catch(err){
+    exportNote.textContent = err && err.code==='declined' ? '' : 'Could not save the file — try again.';
+  }
+}
+
+document.getElementById('exp-json').addEventListener('click', ()=>doExport('json'));
+document.getElementById('exp-md').addEventListener('click', ()=>doExport('md'));
+document.getElementById('exp-txt').addEventListener('click', ()=>doExport('txt'));
+</script>
+</body>
+</html>
