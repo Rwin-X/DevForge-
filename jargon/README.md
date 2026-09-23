@@ -1,4 +1,4 @@
-# ReconBar
+# Jargon
 
 **A single-file, zero-dependency web app for finding cybersecurity learning resources — fast.**
 
