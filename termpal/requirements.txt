@@ -1,0 +1,7 @@
+# TERMPAL has no third-party runtime dependencies - it uses only the
+# Python standard library (curses, json, dataclasses, argparse).
+#
+# This file exists for the "run from source without installing" path
+# described in the README and for development/testing.
+
+pytest>=7.0
