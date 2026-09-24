@@ -29,10 +29,6 @@ how long you were gone.
 - **Local, offline save file** - a single JSON file under
   `~/.local/share/termpal/`, no network access, no account.
 
-## Screenshots
-
-*(add screenshots here once you've generated them)*
-
 ## Requirements
 
 - Linux or macOS (relies on the `curses` terminal library)
@@ -53,41 +49,6 @@ sudo dnf install python3
 sudo pacman -S python
 ```
 
-## Installation
-
-### Quick install (recommended)
-
-```bash
-git clone https://github.com/black8arch/termpal.git
-cd termpal
-./install.sh
-```
-
-`install.sh` creates an isolated virtual environment in `.venv/`,
-installs TERMPAL into it, and writes a small launcher script to
-`~/.local/bin/termpal` so the `termpal` command works from any
-directory afterward. If `~/.local/bin` is not already on your `PATH`,
-the script tells you the line to add to your shell profile.
-
-### Manual install
-
-```bash
-git clone https://github.com/black8arch/termpal.git
-cd termpal
-python3 -m venv venv
-source venv/bin/activate
-pip install .
-termpal
-```
-
-### Run from source without installing
-
-```bash
-git clone https://github.com/black8arch/termpal.git
-cd termpal
-pip install -r requirements.txt
-python3 -m termpal.main
-```
 
 ## Usage
 
@@ -133,7 +94,7 @@ termpal/
 ├── install.sh                 # one-command install
 ├── pyproject.toml
 ├── requirements.txt
-└── LICENSE
+
 ```
 
 The `core`/`ui` split keeps every simulation rule - decay rates, mood
