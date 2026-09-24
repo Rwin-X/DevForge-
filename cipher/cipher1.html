@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cipherdesk</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --paper:#f7f7f5;
+  --surface:#ffffff;
+  --ink:#0e0f11;
+  --dim:#8a8d92;
+  --faint:#b8bABD;
+  --line:#e6e6e3;
+  --accent:#3452eb;
+  --accent-soft:#eef0fd;
+  --err:#c73e3e;
+  --sans:'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#f7f7f5; --surface:#ffffff; --ink:#0e0f11; --dim:#8a8d92;
+    --faint:#b8bABD; --line:#e6e6e3; --accent:#3452eb; --accent-soft:#eef0fd;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#f7f7f5; --surface:#ffffff; --ink:#0e0f11; --dim:#8a8d92;
+  --faint:#b8bABD; --line:#e6e6e3; --accent:#3452eb; --accent-soft:#eef0fd;
+}
+
+*{box-sizing:border-box;}
+html{scroll-padding-top: env(safe-area-inset-top,0px); height:100%;}
+body{
+  margin:0; min-height:100%;
+  background:var(--paper); color:var(--ink);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-soft); color:var(--accent);}
+
+button{font-family:inherit;}
+button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px; border-radius:2px;
+}
+
+/* ---------- header ---------- */
+
+.top{
+  max-width:1160px; margin:0 auto;
+  padding:44px 32px 28px;
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:24px; flex-wrap:wrap;
+}
+.top h1{
+  margin:0; font-weight:500; font-size:22px; letter-spacing:-0.01em;
+}
+.top .count{
+  color:var(--dim); font-size:14px; padding-bottom:2px;
+}
+
+/* ---------- switcher row ---------- */
+
+.switch-row{
+  max-width:1160px; margin:0 auto;
+  padding:0 32px 20px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+}
+
+.picker{position:relative;}
+.picker select{
+  appearance:none;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:10px 40px 10px 18px;
+  font-size:14.5px; font-weight:500; color:var(--ink);
+  cursor:pointer;
+  min-width:230px;
+}
+.picker::after{
+  content:'';
+  position:absolute; right:16px; top:50%;
+  width:8px; height:8px;
+  border-right:1.5px solid var(--dim);
+  border-bottom:1.5px solid var(--dim);
+  transform:translateY(-65%) rotate(45deg);
+  pointer-events:none;
+}
+
+.dir{
+  display:flex; background:var(--surface);
+  border:1px solid var(--line); border-radius:999px;
+  padding:3px;
+}
+.dir button{
+  border:none; background:none; cursor:pointer;
+  padding:7px 18px; border-radius:999px;
+  font-size:14px; font-weight:500; color:var(--dim);
+  transition:background .15s ease, color .15s ease;
+}
+.dir button.active{background:var(--ink); color:var(--surface);}
+.dir button:disabled{opacity:.35; cursor:not-allowed;}
+
+.about{
+  flex:1 1 260px;
+  color:var(--dim); font-size:13.5px; line-height:1.55;
+  padding-top:2px;
+}
+.about b{color:var(--ink); font-weight:500;}
+
+/* ---------- key row ---------- */
+
+.keys{
+  max-width:1160px; margin:0 auto;
+  padding:0 32px 8px;
+  display:flex; gap:28px; flex-wrap:wrap;
+}
+.keys.empty{display:none;}
+.keyfield{flex:1 1 260px; min-width:220px;}
+.keyfield label{
+  display:block; font-size:12.5px; color:var(--dim); margin-bottom:6px;
+}
+.key-input-wrap{
+  position:relative;
+  border-bottom:1px solid var(--faint);
+  transition:border-color .15s ease;
+}
+.key-input-wrap:focus-within{border-color:var(--ink);}
+.keyfield input{
+  width:100%; border:none; background:none;
+  padding:6px 34px 8px 0;
+  font-family:var(--mono); font-size:14.5px; color:var(--ink);
+}
+.keyfield input::placeholder{color:var(--faint);}
+.keyfield .hint{font-size:11.5px; color:var(--faint); margin-top:6px;}
+.peek{
+  position:absolute; right:0; top:2px;
+  border:none; background:none; cursor:pointer;
+  color:var(--dim); font-size:11.5px;
+  padding:6px 0;
+}
+
+/* ---------- stage ---------- */
+
+.stage{
+  max-width:1160px; margin:0 auto;
+  padding:22px 32px 40px;
+  display:grid; grid-template-columns:1fr 1px 1fr;
+  gap:0; min-height:420px;
+}
+.rule{background:var(--line);}
+.pane{display:flex; flex-direction:column; min-width:0;}
+.pane.left{padding-right:40px;}
+.pane.right{padding-left:40px;}
+
+.pane-top{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:12px;
+}
+.pane-top .tag{font-size:12.5px; color:var(--dim);}
+.pane-top button{
+  border:none; background:none; cursor:pointer;
+  font-size:12.5px; color:var(--dim);
+  padding:4px 0;
+}
+.pane-top button:hover{color:var(--ink);}
+
+textarea{
+  flex:1; min-height:340px;
+  border:none; resize:vertical; background:none;
+  padding:0; font-family:var(--mono); font-size:15px; line-height:1.65;
+  color:var(--ink);
+}
+textarea::placeholder{color:var(--faint); font-family:var(--sans);}
+#outputText{color:var(--ink);}
+#outputText[data-error="true"]{color:var(--err);}
+
+@media (max-width:820px){
+  .stage{grid-template-columns:1fr; gap:28px;}
+  .rule{display:none;}
+  .pane.left, .pane.right{padding:0; border-top:1px solid var(--line); padding-top:24px;}
+  .pane.left{border-top:none; padding-top:0;}
+  textarea{min-height:220px;}
+}
+
+/* ---------- footer ---------- */
+
+.status{
+  max-width:1160px; margin:0 auto;
+  padding:0 32px 48px;
+  display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  font-size:12.5px; color:var(--faint);
+}
+.status .err{color:var(--err);}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Cipherdesk</h1>
+  <span class="count" id="modeCount"></span>
+</header>
+
+<div class="switch-row">
+  <div class="picker">
+    <select id="algo" aria-label="Algorithm"></select>
+  </div>
+  <div class="dir">
+    <button type="button" id="btnEnc" class="active">Encrypt</button>
+    <button type="button" id="btnDec">Decrypt</button>
+  </div>
+  <p class="about" id="algoDesc"></p>
+</div>
+
+<div class="keys" id="keyRow">
+  <div class="keyfield" id="keyField">
+    <label id="keyLabel" for="keyInput">Key</label>
+    <div class="key-input-wrap">
+      <input type="password" id="keyInput" autocomplete="off" spellcheck="false">
+      <button type="button" class="peek" id="peekKey">Show</button>
+    </div>
+    <div class="hint" id="keyHint"></div>
+  </div>
+  <div class="keyfield" id="key2Field" style="display:none;">
+    <label id="key2Label" for="key2Input">Param</label>
+    <div class="key-input-wrap">
+      <input type="text" id="key2Input" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="hint" id="key2Hint"></div>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="pane left">
+    <div class="pane-top">
+      <span class="tag">Input</span>
+      <button type="button" id="clearInput">Clear</button>
+    </div>
+    <textarea id="inputText" placeholder="Type or paste text…" spellcheck="false"></textarea>
+  </div>
+  <div class="rule"></div>
+  <div class="pane right">
+    <div class="pane-top">
+      <span class="tag">Result</span>
+      <button type="button" id="copyOutput">Copy</button>
+    </div>
+    <textarea id="outputText" placeholder="Result appears here" readonly spellcheck="false"></textarea>
+  </div>
+</div>
+
+<footer class="status">
+  <span id="statusMsg">Ready</span>
+  <span id="statusMeta"></span>
+</footer>
+
+<script>
+(function(){
+
+const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function mod(n,m){ return ((n % m) + m) % m; }
+
+// ---------- Classical: substitution / shift family ----------
+
+function caesarShift(text, shift, decrypt){
+  const s = decrypt ? -shift : shift;
+  return text.replace(/[a-zA-Z]/g, ch=>{
+    const base = ch === ch.toUpperCase() ? 65 : 97;
+    return String.fromCharCode(mod(ch.charCodeAt(0)-base+s,26)+base);
+  });
+}
+function rot13(text){
+  return text.replace(/[a-zA-Z]/g, ch=>{
+    const base = ch === ch.toUpperCase() ? 65 : 97;
+    return String.fromCharCode(mod(ch.charCodeAt(0)-base+13,26)+base);
+  });
+}
+function rot47(text){
+  return text.replace(/[!-~]/g, ch=> String.fromCharCode(33 + mod(ch.charCodeAt(0)-33+47,94)));
+}
+function atbash(text){
+  return text.replace(/[a-zA-Z]/g, ch=>{
+    const base = ch === ch.toUpperCase() ? 65 : 97;
+    return String.fromCharCode(base + (25 - (ch.charCodeAt(0)-base)));
+  });
+}
+function vigenere(text, key, decrypt){
+  if(!key || !/[a-zA-Z]/.test(key)) throw new Error("Key must contain letters.");
+  const k = key.replace(/[^a-zA-Z]/g,"").toUpperCase();
+  if(!k.length) throw new Error("Key must contain letters.");
+  let ki = 0;
+  return text.replace(/[a-zA-Z]/g, ch=>{
+    const base = ch === ch.toUpperCase() ? 65 : 97;
+    const shift = k.charCodeAt(ki % k.length) - 65;
+    ki++;
+    const s = decrypt ? -shift : shift;
+    return String.fromCharCode(mod(ch.charCodeAt(0)-base+s,26)+base);
+  });
+}
+function beaufort(text, key){
+  if(!key || !/[a-zA-Z]/.test(key)) throw new Error("Key must contain letters.");
+  const k = key.replace(/[^a-zA-Z]/g,"").toUpperCase();
+  if(!k.length) throw new Error("Key must contain letters.");
+  let ki = 0;
+  return text.replace(/[a-zA-Z]/g, ch=>{
+    const base = ch === ch.toUpperCase() ? 65 : 97;
+    const p = ch.charCodeAt(0)-base;
+    const kc = k.charCodeAt(ki % k.length) - 65;
+    ki++;
+    return String.fromCharCode(mod(kc-p,26)+base);
+  });
+}
+function autokey(text, key, decrypt){
+  if(!key || !/[a-zA-Z]/.test(key)) throw new Error("Key must contain letters.");
+  const k0 = key.replace(/[^a-zA-Z]/g,"").toUpperCase();
+  if(!k0.length) throw new Error("Key must contain letters.");
+  let out = "";
+  if(!decrypt){
+    let stream = k0 + text.replace(/[^a-zA-Z]/g,"").toUpperCase();
+    let si = 0;
+    out = text.replace(/[a-zA-Z]/g, ch=>{
+      const base = ch === ch.toUpperCase() ? 65 : 97;
+      const shift = stream.charCodeAt(si) - 65;
+      si++;
+      return String.fromCharCode(mod(ch.charCodeAt(0)-base+shift,26)+base);
+    });
+  } else {
+    let stream = k0.split("");
+    let si = 0;
+    out = text.replace(/[a-zA-Z]/g, ch=>{
+      const base = ch === ch.toUpperCase() ? 65 : 97;
+      const shift = stream[si].charCodeAt(0) - 65;
+      const p = mod(ch.charCodeAt(0)-base-shift,26);
+      stream.push(String.fromCharCode(p+65));
+      si++;
+      return String.fromCharCode(p+base);
+    });
+  }
+  return out;
+}
+function railFence(text, rails, decrypt){
+  const n = parseInt(rails,10);
+  if(!n || n<2) throw new Error("Rail count must be an integer ≥ 2.");
+  const len = text.length;
+  if(!decrypt){
+    const fence = Array.from({length:n},()=>[]);
+    let rail=0, dir=1;
+    for(let i=0;i<len;i++){
+      fence[rail].push(text[i]);
+      if(rail===0) dir=1; else if(rail===n-1) dir=-1;
+      rail+=dir;
+    }
+    return fence.map(r=>r.join("")).join("");
+  } else {
+    const pattern=[];
+    let rail=0, dir=1;
+    for(let i=0;i<len;i++){
+      pattern.push(rail);
+      if(rail===0) dir=1; else if(rail===n-1) dir=-1;
+      rail+=dir;
+    }
+    const counts = new Array(n).fill(0);
+    pattern.forEach(r=>counts[r]++);
+    const rows=[]; let idx=0;
+    for(let r=0;r<n;r++){ rows.push(text.slice(idx,idx+counts[r]).split("")); idx+=counts[r]; }
+    const rowPos = new Array(n).fill(0);
+    let out="";
+    for(let i=0;i<len;i++){
+      const r = pattern[i];
+      out += rows[r][rowPos[r]++];
+    }
+    return out;
+  }
+}
+function columnarTranspose(text, key, decrypt){
+  if(!key || !key.trim()) throw new Error("Key required (word or number sequence).");
+  const k = key.trim();
+  const order = [...k].map((c,i)=>({c:c.toLowerCase(),i}))
+    .sort((a,b)=> a.c<b.c?-1:a.c>b.c?1:a.i-b.i)
+    .map((v,rank)=>({orig:v.i, rank}));
+  const cols = k.length;
+  const colOrder = new Array(cols);
+  order.forEach((o,idx)=>{ colOrder[o.orig]=idx; });
+  if(!decrypt){
+    const rows = Math.ceil(text.length/cols);
+    const padded = text.padEnd(rows*cols,'\u0000');
+    let grid=[];
+    for(let r=0;r<rows;r++) grid.push(padded.slice(r*cols,(r+1)*cols).split(""));
+    let out="";
+    for(let rank=0;rank<cols;rank++){
+      const col = colOrder.indexOf(rank);
+      for(let r=0;r<rows;r++) if(grid[r][col]!=='\u0000') out+=grid[r][col];
+    }
+    return out;
+  } else {
+    const rows = Math.ceil(text.length/cols);
+    const totalCells = rows*cols;
+    const shortCols = totalCells - text.length;
+    const grid = Array.from({length:rows},()=>new Array(cols).fill(null));
+    let pos=0;
+    for(let rank=0;rank<cols;rank++){
+      const col = colOrder.indexOf(rank);
+      const colLen = col < (cols-shortCols) ? rows : rows-1;
+      for(let r=0;r<colLen;r++){ grid[r][col]=text[pos]; pos++; }
+    }
+    let out="";
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(grid[r][c]!==null) out+=grid[r][c];
+    return out;
+  }
+}
+function playfairPrep(key){
+  key = key.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+  let seen=new Set(), sq=[];
+  for(const c of key) if(!seen.has(c)){seen.add(c); sq.push(c);}
+  for(const c of ALPHA) if(c!=='J' && !seen.has(c)){seen.add(c); sq.push(c);}
+  return sq;
+}
+function playfair(text, key, decrypt){
+  if(!key || !/[a-zA-Z]/.test(key)) throw new Error("Key must contain letters.");
+  const sq = playfairPrep(key);
+  const pos = c => { const i=sq.indexOf(c); return [Math.floor(i/5), i%5]; };
+  let clean = text.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+  if(!clean.length) throw new Error("Input must contain letters for Playfair.");
+  let pairs=[];
+  if(!decrypt){
+    let i=0;
+    while(i<clean.length){
+      let a=clean[i], b=clean[i+1];
+      if(!b){ pairs.push([a,'X']); i+=1; }
+      else if(a===b){ pairs.push([a,'X']); i+=1; }
+      else { pairs.push([a,b]); i+=2; }
+    }
+  } else {
+    if(clean.length % 2 !== 0) throw new Error("Playfair ciphertext length must be even.");
+    for(let i=0;i<clean.length;i+=2) pairs.push([clean[i],clean[i+1]]);
+  }
+  let out="";
+  for(const [a,b] of pairs){
+    const [ar,ac]=pos(a), [br,bc]=pos(b);
+    if(ar===br){
+      const d = decrypt?-1:1;
+      out += sq[ar*5+mod(ac+d,5)] + sq[br*5+mod(bc+d,5)];
+    } else if(ac===bc){
+      const d = decrypt?-1:1;
+      out += sq[mod(ar+d,5)*5+ac] + sq[mod(br+d,5)*5+bc];
+    } else {
+      out += sq[ar*5+bc] + sq[br*5+ac];
+    }
+  }
+  return out;
+}
+function polybius(text, decrypt){
+  const sq = playfairPrep("");
+  if(!decrypt){
+    let clean = text.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+    if(!clean.length) throw new Error("Input must contain letters.");
+    let out=[];
+    for(const c of clean){
+      const i=sq.indexOf(c);
+      out.push(`${Math.floor(i/5)+1}${(i%5)+1}`);
+    }
+    return out.join(" ");
+  } else {
+    const nums = text.trim().split(/\s+/).filter(Boolean);
+    let out="";
+    for(const pair of nums){
+      if(!/^[1-5]{2}$/.test(pair)) throw new Error(`Invalid Polybius pair: "${pair}"`);
+      const r=+pair[0]-1, c=+pair[1]-1;
+      out += sq[r*5+c];
+    }
+    return out;
+  }
+}
+function baconian(text, decrypt){
+  const map = {};
+  const bin = n => n.toString(2).padStart(5,'0').replace(/0/g,'A').replace(/1/g,'B');
+  let letters = ALPHA.split("");
+  letters.forEach((l,i)=> map[l]=bin(i));
+  if(!decrypt){
+    let clean = text.toUpperCase().replace(/[^A-Z]/g,'');
+    if(!clean.length) throw new Error("Input must contain letters.");
+    return clean.split("").map(c=>map[c]).join(" ");
+  } else {
+    const rev = {}; Object.entries(map).forEach(([k,v])=>rev[v]=k);
+    let toks = text.toUpperCase().replace(/[^AB\s]/g,'').split(/\s+/).filter(Boolean);
+    if(!toks.length){
+      const raw = text.toUpperCase().replace(/[^AB]/g,'');
+      if(raw.length % 5 !== 0) throw new Error("Baconian ciphertext must be groups of 5 A/B letters.");
+      toks=[]; for(let i=0;i<raw.length;i+=5) toks.push(raw.slice(i,i+5));
+    }
+    return toks.map(t=>{ if(!rev[t]) throw new Error(`Invalid Baconian group: "${t}"`); return rev[t]; }).join("");
+  }
+}
+const MORSE_MAP = {
+A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',
+K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',
+U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+'0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+'6':'-....','7':'--...','8':'---..','9':'----.',
+'.':'.-.-.-',',':'--..--','?':'..--..',"'":'.----.','!':'-.-.--','/':'-..-.',
+'(':'-.--.',')':'-.--.-','&':'.-...',':':'---...',';':'-.-.-.','=':'-...-',
+'+':'.-.-.','-':'-....-','_':'..--.-','"':'.-..-.','$':'...-..-','@':'.--.-.'
+};
+function morse(text, decrypt){
+  if(!decrypt){
+    return text.toUpperCase().split("").map(c=>{
+      if(c===' ') return '/';
+      return MORSE_MAP[c] !== undefined ? MORSE_MAP[c] : '';
+    }).filter(x=>x!=='').join(" ");
+  } else {
+    const rev = {}; Object.entries(MORSE_MAP).forEach(([k,v])=>rev[v]=k);
+    return text.trim().split(/\s+/).map(tok=>{
+      if(tok==='/') return ' ';
+      if(rev[tok]===undefined) throw new Error(`Unknown Morse token: "${tok}"`);
+      return rev[tok];
+    }).join("");
+  }
+}
+
+function b64Enc(text){ return btoa(unescape(encodeURIComponent(text))); }
+function b64Dec(text){
+  try{ return decodeURIComponent(escape(atob(text.trim()))); }
+  catch(e){ throw new Error("Invalid Base64 input."); }
+}
+function b32Enc(text){
+  const bytes = new TextEncoder().encode(text);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits=0, value=0, out="";
+  for(const b of bytes){
+    value=(value<<8)|b; bits+=8;
+    while(bits>=5){ out+=alphabet[(value>>>(bits-5))&31]; bits-=5; }
+  }
+  if(bits>0) out+=alphabet[(value<<(5-bits))&31];
+  while(out.length % 8 !== 0) out+="=";
+  return out;
+}
+function b32Dec(text){
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = text.trim().toUpperCase().replace(/=+$/,'');
+  let bits=0, value=0, bytes=[];
+  for(const c of clean){
+    const idx = alphabet.indexOf(c);
+    if(idx===-1) throw new Error(`Invalid Base32 character: "${c}"`);
+    value=(value<<5)|idx; bits+=5;
+    if(bits>=8){ bytes.push((value>>>(bits-8))&255); bits-=8; }
+  }
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(new Uint8Array(bytes)); }
+  catch(e){ throw new Error("Decoded bytes are not valid UTF-8."); }
+}
+function hexEnc(text){
+  return Array.from(new TextEncoder().encode(text)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function hexDec(text){
+  const clean = text.trim().replace(/\s+/g,'');
+  if(!/^[0-9a-fA-F]*$/.test(clean) || clean.length%2!==0) throw new Error("Invalid hex input.");
+  const bytes = new Uint8Array(clean.match(/.{2}/g)?.map(b=>parseInt(b,16)) || []);
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(bytes); }
+  catch(e){ throw new Error("Decoded bytes are not valid UTF-8."); }
+}
+function binEnc(text){
+  return Array.from(new TextEncoder().encode(text)).map(b=>b.toString(2).padStart(8,'0')).join(' ');
+}
+function binDec(text){
+  const toks = text.trim().split(/\s+/).filter(Boolean);
+  if(toks.some(t=>!/^[01]{1,8}$/.test(t))) throw new Error("Invalid binary input.");
+  const bytes = new Uint8Array(toks.map(t=>parseInt(t,2)));
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(bytes); }
+  catch(e){ throw new Error("Decoded bytes are not valid UTF-8."); }
+}
+function urlEnc(text){ return encodeURIComponent(text); }
+function urlDec(text){ try{ return decodeURIComponent(text); } catch(e){ throw new Error("Invalid percent-encoded input."); } }
+
+function hashFn(algName){
+  return {
+    id: algName.toLowerCase(),
+    name: algName,
+    group: "Hash (one-way)",
+    key1: null, key2: null,
+    oneWay: true,
+    desc: `${algName} is a one-way hash. There is no decrypt direction — hashing cannot be reversed.`,
+    enc: (text)=>{
+      switch(algName){
+        case "MD5": return CryptoJS.MD5(text).toString();
+        case "SHA-1": return CryptoJS.SHA1(text).toString();
+        case "SHA-256": return CryptoJS.SHA256(text).toString();
+        case "SHA-224": return CryptoJS.SHA224(text).toString();
+        case "SHA-512": return CryptoJS.SHA512(text).toString();
+        case "SHA-384": return CryptoJS.SHA384(text).toString();
+        case "SHA-3": return CryptoJS.SHA3(text).toString();
+        case "RIPEMD-160": return CryptoJS.RIPEMD160(text).toString();
+      }
+    },
+    dec: ()=>{ throw new Error("Hashes cannot be decrypted or reversed."); }
+  };
+}
+function hmacFn(algName, cjsFn){
+  return {
+    id: "hmac-"+algName.toLowerCase(),
+    name: "HMAC-"+algName,
+    group: "Hash (one-way)",
+    key1: {label:"Key", hint:"Shared secret used for the HMAC.", placeholder:"secret key"},
+    key2: null,
+    oneWay: true,
+    desc: `HMAC-${algName} is a keyed one-way hash. There is no decrypt direction.`,
+    enc: (text,k1)=>{
+      if(!k1) throw new Error("Key required.");
+      return cjsFn(text,k1).toString();
+    },
+    dec: ()=>{ throw new Error("HMAC output cannot be reversed."); }
+  };
+}
+function cjsSymmetric(name, cjsAlg, opts){
+  opts = opts || {};
+  return {
+    id: name.toLowerCase().replace(/\s+/g,'-'),
+    name: name,
+    group: "Symmetric (modern)",
+    key1: {label:"Passphrase", hint:"Key is derived from this passphrase automatically.", placeholder:"passphrase"},
+    key2: null,
+    desc: opts.desc || `${name} symmetric encryption. Output is Base64; decrypting requires the same passphrase.`,
+    enc: (text,k1)=>{
+      if(!k1) throw new Error("Passphrase required.");
+      return cjsAlg.encrypt(text, k1).toString();
+    },
+    dec: (text,k1)=>{
+      if(!k1) throw new Error("Passphrase required.");
+      try{
+        const bytes = cjsAlg.decrypt(text.trim(), k1);
+        const out = bytes.toString(CryptoJS.enc.Utf8);
+        if(!out) throw new Error("empty");
+        return out;
+      } catch(e){
+        throw new Error("Decryption failed — wrong passphrase or corrupted ciphertext.");
+      }
+    }
+  };
+}
+function aesModeVariant(mode, modeName){
+  return {
+    id: "aes-"+modeName.toLowerCase(),
+    name: "AES · "+modeName,
+    group: "Symmetric (modern)",
+    key1: {label:"Passphrase", hint:"256-bit key derived from this passphrase. Output is salted Base64.", placeholder:"passphrase"},
+    key2: null,
+    desc: `AES-256 in ${modeName} mode.`,
+    enc: (text,k1)=>{
+      if(!k1) throw new Error("Passphrase required.");
+      return CryptoJS.AES.encrypt(text, k1, {mode}).toString();
+    },
+    dec: (text,k1)=>{
+      if(!k1) throw new Error("Passphrase required.");
+      try{
+        const bytes = CryptoJS.AES.decrypt(text.trim(), k1, {mode});
+        const out = bytes.toString(CryptoJS.enc.Utf8);
+        if(!out) throw new Error("empty");
+        return out;
+      } catch(e){
+        throw new Error("Decryption failed — wrong passphrase or corrupted ciphertext.");
+      }
+    }
+  };
+}
+function xorCipher(){
+  return {
+    id: "xor",
+    name: "XOR",
+    group: "Classical / stream",
+    key1: {label:"Key", hint:"Repeats across the message. Output is hex.", placeholder:"key"},
+    key2: null,
+    desc: `Each byte XORed with a repeating key byte. Symmetric — the same operation encrypts and decrypts.`,
+    enc: (text,k1)=>{
+      if(!k1) throw new Error("Key required.");
+      const data = new TextEncoder().encode(text);
+      const key = new TextEncoder().encode(k1);
+      const out = new Uint8Array(data.length);
+      for(let i=0;i<data.length;i++) out[i]=data[i]^key[i%key.length];
+      return Array.from(out).map(b=>b.toString(16).padStart(2,'0')).join('');
+    },
+    dec: (text,k1)=>{
+      if(!k1) throw new Error("Key required.");
+      const clean = text.trim().replace(/\s+/g,'');
+      if(!/^[0-9a-fA-F]*$/.test(clean) || clean.length%2!==0) throw new Error("Ciphertext must be hex.");
+      const bytes = new Uint8Array(clean.match(/.{2}/g)?.map(b=>parseInt(b,16))||[]);
+      const key = new TextEncoder().encode(k1);
+      const out = new Uint8Array(bytes.length);
+      for(let i=0;i<bytes.length;i++) out[i]=bytes[i]^key[i%key.length];
+      try{ return new TextDecoder("utf-8",{fatal:true}).decode(out); }
+      catch(e){ throw new Error("Wrong key or corrupted ciphertext (invalid UTF-8 result)."); }
+    }
+  };
+}
+function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){[a,b]=[b,a%b];} return a; }
+function modInverse(a,m){
+  a=mod(a,m);
+  for(let x=1;x<m;x++) if(mod(a*x,m)===1) return x;
+  return null;
+}
+function affineCipher(){
+  return {
+    id:"affine",
+    name:"Affine",
+    group:"Classical / substitution",
+    key1:{label:"a — coprime to 26", hint:"e.g. 1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25.", placeholder:"5"},
+    key2:{label:"b — shift", hint:"Integer 0–25.", placeholder:"8"},
+    desc:`E(x) = (a·x + b) mod 26. a must be coprime with 26.`,
+    enc:(text,a,b)=>{
+      const A=parseInt(a,10), B=parseInt(b,10);
+      if(isNaN(A)||isNaN(B)) throw new Error("a and b must be integers.");
+      if(gcd(A,26)!==1) throw new Error("a must be coprime with 26.");
+      return text.replace(/[a-zA-Z]/g, ch=>{
+        const base = ch===ch.toUpperCase()?65:97;
+        const x = ch.charCodeAt(0)-base;
+        return String.fromCharCode(mod(A*x+B,26)+base);
+      });
+    },
+    dec:(text,a,b)=>{
+      const A=parseInt(a,10), B=parseInt(b,10);
+      if(isNaN(A)||isNaN(B)) throw new Error("a and b must be integers.");
+      if(gcd(A,26)!==1) throw new Error("a must be coprime with 26.");
+      const inv = modInverse(A,26);
+      if(inv===null) throw new Error("a has no modular inverse mod 26.");
+      return text.replace(/[a-zA-Z]/g, ch=>{
+        const base = ch===ch.toUpperCase()?65:97;
+        const y = ch.charCodeAt(0)-base;
+        return String.fromCharCode(mod(inv*(y-B),26)+base);
+      });
+    }
+  };
+}
+function base64UrlVariant(){
+  return {
+    id:"base64url",
+    name:"Base64 URL-safe",
+    group:"Encoding",
+    key1:null, key2:null,
+    desc:`Uses - and _ instead of + and /, no padding. Not encryption — trivially reversible.`,
+    enc:(text)=> b64Enc(text).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+    dec:(text)=>{
+      let t=text.trim().replace(/-/g,'+').replace(/_/g,'/');
+      while(t.length%4) t+='=';
+      return b64Dec(t);
+    }
+  };
+}
+
+const CIPHERS = [
+  { id:"caesar", name:"Caesar", group:"Classical / substitution",
+    key1:{label:"Shift", hint:"Integer 0–25.", placeholder:"3"}, key2:null,
+    desc:`Shifts each letter by a fixed amount — the oldest known substitution cipher.`,
+    enc:(t,k)=>{ const n=parseInt(k,10); if(isNaN(n)) throw new Error("Shift must be an integer."); return caesarShift(t,n,false); },
+    dec:(t,k)=>{ const n=parseInt(k,10); if(isNaN(n)) throw new Error("Shift must be an integer."); return caesarShift(t,n,true); }
+  },
+  { id:"rot13", name:"ROT13", group:"Classical / substitution",
+    key1:null, key2:null,
+    desc:`Caesar shift fixed at 13. Self-reciprocal — applying it twice returns the original.`,
+    enc:(t)=>rot13(t), dec:(t)=>rot13(t)
+  },
+  { id:"rot47", name:"ROT47", group:"Classical / substitution",
+    key1:null, key2:null,
+    desc:`ROT13's cousin over the full printable ASCII range. Self-reciprocal.`,
+    enc:(t)=>rot47(t), dec:(t)=>rot47(t)
+  },
+  { id:"atbash", name:"Atbash", group:"Classical / substitution",
+    key1:null, key2:null,
+    desc:`Reverses the alphabet — A↔Z, B↔Y. Self-reciprocal, no key.`,
+    enc:(t)=>atbash(t), dec:(t)=>atbash(t)
+  },
+  { id:"affine", name:"Affine", group:"Classical / substitution", ...affineCipher() },
+  { id:"vigenere", name:"Vigenère", group:"Classical / polyalphabetic",
+    key1:{label:"Key", hint:"Letters only; repeats across the message.", placeholder:"KEYWORD"}, key2:null,
+    desc:`Polyalphabetic shift using a repeating keyword.`,
+    enc:(t,k)=>vigenere(t,k,false), dec:(t,k)=>vigenere(t,k,true)
+  },
+  { id:"beaufort", name:"Beaufort", group:"Classical / polyalphabetic",
+    key1:{label:"Key", hint:"Letters only. Self-reciprocal cipher.", placeholder:"KEYWORD"}, key2:null,
+    desc:`Vigenère variant (E = K − P). Self-reciprocal — the same operation both ways.`,
+    enc:(t,k)=>beaufort(t,k), dec:(t,k)=>beaufort(t,k)
+  },
+  { id:"autokey", name:"Autokey", group:"Classical / polyalphabetic",
+    key1:{label:"Primer key", hint:"Letters only; plaintext extends the key stream.", placeholder:"PRIMER"}, key2:null,
+    desc:`Vigenère variant where the plaintext extends the key stream after the primer.`,
+    enc:(t,k)=>autokey(t,k,false), dec:(t,k)=>autokey(t,k,true)
+  },
+  { id:"playfair", name:"Playfair", group:"Classical / digraph",
+    key1:{label:"Key", hint:"Letters only; builds a 5×5 grid (I/J merged).", placeholder:"KEYWORD"}, key2:null,
+    desc:`Encrypts letter pairs using a 5×5 key square. Used militarily into the 20th century.`,
+    enc:(t,k)=>playfair(t,k,false), dec:(t,k)=>playfair(t,k,true)
+  },
+  { id:"polybius", name:"Polybius square", group:"Classical / digraph",
+    key1:null, key2:null,
+    desc:`Maps each letter to a row/column pair in a 5×5 grid (I/J merged).`,
+    enc:(t)=>polybius(t,false), dec:(t)=>polybius(t,true)
+  },
+  { id:"railfence", name:"Rail fence", group:"Classical / transposition",
+    key1:{label:"Rails", hint:"Number of zigzag rows, integer ≥ 2.", placeholder:"3"}, key2:null,
+    desc:`Writes text in a zigzag across N rails, then reads row by row.`,
+    enc:(t,k)=>railFence(t,k,false), dec:(t,k)=>railFence(t,k,true)
+  },
+  { id:"columnar", name:"Columnar transposition", group:"Classical / transposition",
+    key1:{label:"Key", hint:"Word or sequence — its letter order sets the column order.", placeholder:"ZEBRA"}, key2:null,
+    desc:`Writes text into a grid of columns ordered by the key, then reads columns in order.`,
+    enc:(t,k)=>columnarTranspose(t,k,false), dec:(t,k)=>columnarTranspose(t,k,true)
+  },
+  { id:"baconian", name:"Baconian", group:"Classical / steganographic",
+    key1:null, key2:null,
+    desc:`Each letter becomes a 5-bit A/B sequence. Francis Bacon's biliteral cipher.`,
+    enc:(t)=>baconian(t,false), dec:(t)=>baconian(t,true)
+  },
+  { id:"morse", name:"Morse code", group:"Classical / encoding",
+    key1:null, key2:null,
+    desc:`Dots and dashes per character, space-separated. / marks a word boundary.`,
+    enc:(t)=>morse(t,false), dec:(t)=>morse(t,true)
+  },
+  { id:"xor", name:"XOR", group:"Classical / stream", ...xorCipher() },
+
+  { id:"base64", name:"Base64", group:"Encoding", key1:null, key2:null,
+    desc:`Binary-to-text encoding, not encryption. Fully reversible with no key.`,
+    enc:(t)=>b64Enc(t), dec:(t)=>b64Dec(t) },
+  { id:"base64url", name:"Base64 URL-safe", group:"Encoding", ...base64UrlVariant() },
+  { id:"base32", name:"Base32", group:"Encoding", key1:null, key2:null,
+    desc:`RFC 4648 binary-to-text encoding using a 32-symbol alphabet.`,
+    enc:(t)=>b32Enc(t), dec:(t)=>b32Dec(t) },
+  { id:"hex", name:"Hexadecimal", group:"Encoding", key1:null, key2:null,
+    desc:`Each byte written as two hex digits.`,
+    enc:(t)=>hexEnc(t), dec:(t)=>hexDec(t) },
+  { id:"binary", name:"Binary", group:"Encoding", key1:null, key2:null,
+    desc:`Each byte written as 8 bits, space-separated.`,
+    enc:(t)=>binEnc(t), dec:(t)=>binDec(t) },
+  { id:"urlencode", name:"URL encoding", group:"Encoding", key1:null, key2:null,
+    desc:`Escapes reserved characters for use inside a URL.`,
+    enc:(t)=>urlEnc(t), dec:(t)=>urlDec(t) },
+
+  { id:"aes-cbc", name:"AES · CBC", group:"Symmetric (modern)", ...aesModeVariant(CryptoJS.mode.CBC,"CBC") },
+  { id:"aes-ecb", name:"AES · ECB", group:"Symmetric (modern)", ...aesModeVariant(CryptoJS.mode.ECB,"ECB") },
+  { id:"aes-ctr", name:"AES · CTR", group:"Symmetric (modern)", ...aesModeVariant(CryptoJS.mode.CTR,"CTR") },
+  { id:"aes-cfb", name:"AES · CFB", group:"Symmetric (modern)", ...aesModeVariant(CryptoJS.mode.CFB,"CFB") },
+  { id:"aes-ofb", name:"AES · OFB", group:"Symmetric (modern)", ...aesModeVariant(CryptoJS.mode.OFB,"OFB") },
+
+  cjsSymmetric("Triple DES", CryptoJS.TripleDES, {desc:`Applies DES three times with derived subkeys. Legacy standard, superseded by AES.`}),
+  cjsSymmetric("DES", CryptoJS.DES, {desc:`56-bit-key block cipher from 1977. Broken by brute force today — reference only.`}),
+  cjsSymmetric("RC4", CryptoJS.RC4, {desc:`Classic stream cipher. Known biases make it unsuitable for new systems.`}),
+  cjsSymmetric("Rabbit", CryptoJS.Rabbit, {desc:`High-speed eSTREAM-portfolio stream cipher.`}),
+
+  hashFn("MD5"), hashFn("SHA-1"), hashFn("SHA-224"), hashFn("SHA-256"),
+  hashFn("SHA-384"), hashFn("SHA-512"), hashFn("SHA-3"), hashFn("RIPEMD-160"),
+
+  hmacFn("MD5", CryptoJS.HmacMD5),
+  hmacFn("SHA1", CryptoJS.HmacSHA1),
+  hmacFn("SHA256", CryptoJS.HmacSHA256),
+  hmacFn("SHA512", CryptoJS.HmacSHA512),
+];
+
+const $ = id => document.getElementById(id);
+const elAlgo = $("algo"), elDesc = $("algoDesc");
+const elKeyRow = $("keyRow"), elKeyField=$("keyField"), elKey2Field=$("key2Field");
+const elKeyLabel=$("keyLabel"), elKey2Label=$("key2Label");
+const elKeyInput=$("keyInput"), elKey2Input=$("key2Input");
+const elKeyHint=$("keyHint"), elKey2Hint=$("key2Hint");
+const elInput=$("inputText"), elOutput=$("outputText");
+const elBtnEnc=$("btnEnc"), elBtnDec=$("btnDec");
+const elStatus=$("statusMsg"), elMeta=$("statusMeta");
+const elModeCount=$("modeCount");
+const elPeek = $("peekKey");
+
+let direction = "enc";
+
+(function buildSelect(){
+  const groups = {};
+  CIPHERS.forEach(c=>{
+    if(!groups[c.group]) groups[c.group]=[];
+    groups[c.group].push(c);
+  });
+  Object.keys(groups).forEach(g=>{
+    const og = document.createElement("optgroup");
+    og.label = g;
+    groups[g].forEach(c=>{
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name;
+      og.appendChild(opt);
+    });
+    elAlgo.appendChild(og);
+  });
+  elModeCount.textContent = CIPHERS.length + " algorithms";
+})();
+
+function currentCipher(){
+  return CIPHERS.find(c=>c.id===elAlgo.value);
+}
+
+function refreshKeyUI(){
+  const c = currentCipher();
+
+  if(!c.key1 && !c.key2){
+    elKeyRow.classList.add("empty");
+  } else {
+    elKeyRow.classList.remove("empty");
+    if(c.key1){
+      elKeyField.style.display = "";
+      elKeyLabel.textContent = c.key1.label;
+      elKeyInput.placeholder = c.key1.placeholder || "";
+      elKeyHint.textContent = c.key1.hint || "";
+      elKeyInput.value = "";
+    } else {
+      elKeyField.style.display = "none";
+    }
+    if(c.key2){
+      elKey2Field.style.display = "";
+      elKey2Label.textContent = c.key2.label;
+      elKey2Input.placeholder = c.key2.placeholder || "";
+      elKey2Hint.textContent = c.key2.hint || "";
+      elKey2Input.value = "";
+    } else {
+      elKey2Field.style.display = "none";
+    }
+  }
+
+  elDesc.textContent = c.desc || "";
+
+  if(c.oneWay){
+    setDirection("enc");
+    elBtnDec.disabled = true;
+  } else {
+    elBtnDec.disabled = false;
+  }
+}
+
+function setDirection(dir){
+  direction = dir;
+  elBtnEnc.classList.toggle("active", dir==="enc");
+  elBtnDec.classList.toggle("active", dir==="dec");
+  run();
+}
+
+function run(){
+  const c = currentCipher();
+  const text = elInput.value;
+  const k1 = elKeyInput.value;
+  const k2 = elKey2Input.value;
+
+  if(!text){
+    elOutput.value = "";
+    elOutput.dataset.error = "false";
+    elStatus.textContent = "Ready";
+    elMeta.textContent = "";
+    return;
+  }
+
+  try{
+    const result = direction==="enc" ? c.enc(text,k1,k2) : c.dec(text,k1,k2);
+    elOutput.value = result;
+    elOutput.dataset.error = "false";
+    elStatus.textContent = (direction==="enc" ? "Encrypted" : "Decrypted") + " with " + c.name;
+    elMeta.textContent = text.length + " in → " + result.length + " out";
+  } catch(err){
+    elOutput.value = "";
+    elOutput.dataset.error = "true";
+    elStatus.textContent = "Error";
+    elMeta.textContent = err.message || String(err);
+  }
+}
+
+elAlgo.addEventListener("change", ()=>{ refreshKeyUI(); run(); });
+elBtnEnc.addEventListener("click", ()=>setDirection("enc"));
+elBtnDec.addEventListener("click", ()=>{ if(!elBtnDec.disabled) setDirection("dec"); });
+elInput.addEventListener("input", run);
+elKeyInput.addEventListener("input", run);
+elKey2Input.addEventListener("input", run);
+
+$("clearInput").addEventListener("click", ()=>{ elInput.value=""; run(); elInput.focus(); });
+$("copyOutput").addEventListener("click", ()=>{
+  if(!elOutput.value) return;
+  navigator.clipboard.writeText(elOutput.value).then(()=>{
+    const btn = $("copyOutput");
+    const prev = btn.textContent;
+    btn.textContent = "Copied";
+    setTimeout(()=>btn.textContent=prev, 1200);
+  }).catch(()=>{});
+});
+
+elPeek.addEventListener("click", ()=>{
+  const show = elKeyInput.type === "password";
+  elKeyInput.type = show ? "text" : "password";
+  elPeek.textContent = show ? "Hide" : "Show";
+});
+
+elAlgo.value = "caesar";
+refreshKeyUI();
+elInput.value = "The quick brown fox jumps over the lazy dog.";
+elKeyInput.value = "3";
+run();
+
+})();
+</script>
+</body>
+</html>
