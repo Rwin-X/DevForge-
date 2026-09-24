@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "termpal"
+version = "1.0.0"
+description = "A persistent ASCII creature that lives in your terminal."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Rwin (black8arch)" }
+]
+classifiers = [
+    "Environment :: Console :: Curses",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment :: Simulation",
+]
+
+[project.urls]
+Repository = "https://github.com/black8arch/termpal"
+
+[project.scripts]
+termpal = "termpal.main:main"
+
+[tool.setuptools]
+packages = ["termpal", "termpal.core", "termpal.ui"]
