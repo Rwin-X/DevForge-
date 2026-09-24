@@ -103,6 +103,4 @@ Every font is authored as literal glyph rows (monospace strings), not generated 
 
 Same reasoning: pulling in `gif.js` or similar would mean a CDN dependency or a bundler, breaking the single-file, zero-dependency property. `encodeGif()` implements GIF89a from scratch — global color table, per-frame graphic control extensions for delay timing, a NETSCAPE2.0 looping extension, and a real LZW compressor (`lzwEncode()`, with dictionary growth and code-size expansion, not a pass-through) — enough to produce valid, properly compressed animated GIFs that decode correctly in standard viewers.
 
-## License
 
-MIT — see [LICENSE](LICENSE).
