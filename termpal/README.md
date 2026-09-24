@@ -101,7 +101,3 @@ The `core`/`ui` split keeps every simulation rule - decay rates, mood
 thresholds, life-stage timing, mini-game logic - testable with plain
 `pytest` and no terminal attached. `tests/` exercises `core/` directly;
 none of it imports `curses`.
-
-## License
-
-MIT - see [LICENSE](LICENSE).
