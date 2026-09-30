@@ -106,4 +106,4 @@ Same reasoning: pulling in `gif.js` or similar would mean a CDN dependency or a 
 
 
 ‌by Rwin-X
-
+ah
