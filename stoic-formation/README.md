@@ -87,10 +87,8 @@ Timing is parameterized near the top of the `run()` function (`floatDuration`, `
 
 ---
 
-## Credits
-
 Quotes served by [stoic-quotes.com](https://stoic-quotes.com), a free public API of Stoic quotations (Marcus Aurelius, Seneca, Epictetus).
 
 ## License
 
-MIT — do whatever you want with it.
+MIT — do whate
