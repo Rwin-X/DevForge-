@@ -90,5 +90,6 @@ what i learn :
                                         |
                                         |
                                         ------> new ways?
+                                        !!!!!!!!!!!!!!!!!!!! system minset collapsing and i hate this shit !!!!!!!!!!!!!!!!!!
                                         
                                          
