@@ -91,8 +91,11 @@ what i learn :
                                         |
                                         ------> new ways?
                                         !!!!!!!!!!!!!!!!!!!! system minset collapsing and i hate this shit !!!!!!!!!!!!!!!!!!
-                                        
-                                         
+                                        |
+                                        |
+                                        |
+                                        -------> i need nivhe out and nerd out 
+                                        -------> without anybody idenity and something more                                          
 
                                         try to get back in system fast as i canS
                                         
