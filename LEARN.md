@@ -93,3 +93,7 @@ what i learn :
                                         !!!!!!!!!!!!!!!!!!!! system minset collapsing and i hate this shit !!!!!!!!!!!!!!!!!!
                                         
                                          
+
+                                        try to get back in system fast as i canS
+                                        
+                                            
