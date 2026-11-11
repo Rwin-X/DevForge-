@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=InboxGuard
+Comment=Remove advertisements and AI-written email from your mailbox
+Exec=__LAUNCHER__
+Terminal=false
+Categories=Network;Email;Utility;
