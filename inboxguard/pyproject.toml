@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inboxguard"
+version = "1.0.0"
+description = "IMAP mailbox cleaner that removes advertisements and AI-written email, with a PyQt6 dashboard."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Rwin (black8arch)" }]
+dependencies = ["PyQt6>=6.5", "keyring>=24.0"]
+
+[project.scripts]
+inboxguard = "inboxguard.main:main"
+
+[tool.setuptools.packages.find]
+include = ["inboxguard*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
